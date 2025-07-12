@@ -7,8 +7,8 @@
 2. Each file has properties (receipt, statement of account, electronic tax invoice) .. This text is easy to edit
 3. When I press the button once, the name of this file changes to the same and the properties and file name are the same after that. (ex 20251040_mac_receipt.pdf)
 ```
-![alt text](../img/result_1.png)
-![alt text](../img/result_1_1.png)
+![alt text](../filename_change/img/result_1.png)
+![alt text](../filename_change/img/result_1_1.png)
 1. 문제점
  - 파일이 한 개만 지정되었다. 파일의 갯수가 시시각각 변하기 때문에 원할 떄 마다 갯수를 변경하고 싶었다.
  - 영어로 명령을 내리다 보니 번역한 언어가 이상하게 번역되었다. (이 부분은 원하는 항목은 한글로 강조할 예정)
