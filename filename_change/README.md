@@ -24,9 +24,9 @@
 3. Change the format of the combo box to "Transaction Statement", "Voucher", "Receipt", "Electronic Tax Invoice", "Capture", and also write a manual.txt so that I can add it when I want.
  ```
 
-![alt text](../img/result_1.png)
-![alt text](../img/result_proc.png)
-![alt text](../img/result_2_1.png)
+![alt text](../filename_change/img/result_1.png)
+![alt text](../filename_change/img/result_proc.png)
+![alt text](../filename_change/img/result_2_1.png)
 
 
 #### 결론
@@ -34,8 +34,8 @@
 
 ## Python
  - html을 잘 몰라 유지보수가 될 거 같지도 않아서 제일 잘하는 파이썬으로 제작해보기로 하였다. js만큼의 직관성은 떨어지지만 기존 내가 불편하다고 생각했던 부분도 추가해서 cli를 작성하였다. 대략 3번 정도의 작성으로 프로그램이 완성되었고 이번에는 플로차트와 기능 내역서도 작성을 부탁하였다. 다음번에 기능 요구사항 내역서를 작성하여 프로그램을 제작할 예정이다.
-![alt text](../img/python_main)
-![alt text](../img/python_setup)
-![alt text](../img/python_proc)
-![alt text](../img/python_result)
+![alt text](../filename_change/img/python_main.png)
+![alt text](../filename_change/img/python_setup.png)
+![alt text](../filename_change/img/python_proc.png)
+![alt text](../filename_change/img/python_result.png)
 
