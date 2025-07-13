@@ -9,7 +9,7 @@ class FileRenamerApp:
         self.root = root
         self.root.title("파일 이름 병합 프로그램")
 
-        self.properties = ["영수증", "거래명세서", "전자세금계산서", "전표", "캡처"]
+        self.properties = ["영수증", "거래명세서", "전자세금계산서", "전표", "캡처", "사업자등록증_통장사본", "사진"]
         self.file_groups = {}
 
         # Base Name
