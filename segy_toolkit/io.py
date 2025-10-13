@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 from pathlib import Path
+from typing import ClassVar, Dict, List, Optional, Sequence
 from typing import ClassVar, Dict, List, Optional
 import codecs
 import io
@@ -23,6 +24,37 @@ import numpy as np
 _TEXT_HEADER_SIZE = 3200
 _BINARY_HEADER_SIZE = 400
 _TRACE_HEADER_SIZE = 240
+
+
+def _normalize_text_header(text: str) -> str:
+    if text is None:
+        text = ""
+    ascii_text = text.encode("ascii", errors="replace").decode("ascii")
+    if len(ascii_text) < _TEXT_HEADER_SIZE:
+        ascii_text = ascii_text.ljust(_TEXT_HEADER_SIZE)
+    else:
+        ascii_text = ascii_text[:_TEXT_HEADER_SIZE]
+    return ascii_text
+
+
+def _encode_text_header(text: str) -> bytes:
+    normalized = _normalize_text_header(text)
+    return normalized.encode("ascii", errors="replace")
+
+
+def _append_processing_note(text_header: str, note: str) -> str:
+    normalized = _normalize_text_header(text_header)
+    lines = [normalized[i : i + 80] for i in range(0, _TEXT_HEADER_SIZE, 80)]
+    cleaned_note = note.upper().encode("ascii", errors="replace").decode("ascii")
+    message = f"C PROCESSING NOTE: {cleaned_note}"[:80].ljust(80)
+
+    for idx, line in enumerate(lines):
+        if not line.strip():
+            lines[idx] = message
+            break
+    else:
+        lines[-1] = message
+    return "".join(lines)
 
 
 @dataclass(frozen=True)
@@ -58,6 +90,10 @@ class BinaryHeader:
         ("fixed_length_traces", "h", 302),
         ("extended_textual_header_count", "h", 304),
     )
+
+    _FIELD_MAP: ClassVar[Dict[str, tuple[str, int]]] = {
+        name: (fmt, offset) for name, fmt, offset in _FIELDS
+    }
 
     _SUPPORTED_SAMPLE_FORMATS: ClassVar[set[int]] = {
         1,
@@ -117,6 +153,18 @@ class BinaryHeader:
             "endianness": self.endianness,
             "_raw_bytes": self.raw_bytes,
         }
+
+    def updated(self, **updates: int) -> "BinaryHeader":
+        """Return a new header with ``updates`` written to the raw bytes."""
+
+        values = {field: getattr(self, field) for field in self._FIELD_MAP}
+        values.update(updates)
+        buffer = bytearray(self.raw_bytes)
+        endian = ">" if self.endianness == "big" else "<"
+        for name, value in values.items():
+            fmt, offset = self._FIELD_MAP[name]
+            struct.Struct(endian + fmt).pack_into(buffer, offset, int(value))
+        return replace(self, raw_bytes=bytes(buffer), **values)
 
 
 @dataclass(frozen=True)
@@ -182,6 +230,10 @@ class TraceHeader:
         ("source_measurement_unit", "h", 176),
     )
 
+    _FIELD_MAP: ClassVar[Dict[str, tuple[str, int]]] = {
+        name: (fmt, offset) for name, fmt, offset in _FIELDS
+    }
+
     @classmethod
     def from_bytes(cls, data: bytes, *, endianness: str) -> "TraceHeader":
         if len(data) != _TRACE_HEADER_SIZE:
@@ -228,6 +280,20 @@ class TraceHeader:
         }
         return result
 
+    def updated(self, *, endianness: str, **updates: int) -> "TraceHeader":
+        """Return a copy with updated numeric fields written back to bytes."""
+
+        buffer = bytearray(self.raw_bytes)
+        endian = ">" if endianness == "big" else "<"
+        for name, value in updates.items():
+            if name not in self._FIELD_MAP:
+                continue
+            fmt, offset = self._FIELD_MAP[name]
+            struct.Struct(endian + fmt).pack_into(buffer, offset, int(value))
+        return replace(self, raw_bytes=bytes(buffer), **updates)
+
+
+@dataclass
 
 @dataclass(frozen=True)
 class SegyDataset:
@@ -249,6 +315,11 @@ class SegyDataset:
                 "New data must have the same shape as the existing traces"
             )
         return replace(self, data=data)
+
+    def with_text_header(self, text_header: str) -> "SegyDataset":
+        """Return a copy with a new textual header."""
+
+        return replace(self, text_header=_normalize_text_header(text_header))
 
     @property
     def n_traces(self) -> int:
@@ -274,6 +345,11 @@ class SegyDataset:
         """Return a list with all trace headers converted to dictionaries."""
 
         return [header.to_dict() for header in self.trace_headers]
+
+    def clone(self, **updates) -> "SegyDataset":
+        """Return a shallow copy with ``updates`` applied."""
+
+        return replace(self, **updates)
 
 
 class SegyReader:
@@ -314,6 +390,99 @@ def read_segy(path: os.PathLike[str] | str) -> SegyDataset:
     """Convenience wrapper returning :class:`SegyDataset`."""
 
     return SegyReader(path).read()
+
+
+def write_segy(
+    dataset: SegyDataset,
+    path: os.PathLike[str] | str,
+    *,
+    data_sample_format: int = 5,
+    processing_note: Optional[str] = None,
+) -> None:
+    """Write ``dataset`` to a SEG-Y file.
+
+    Parameters
+    ----------
+    dataset:
+        Dataset to persist.  Only regularly shaped 2D data is supported.
+    path:
+        Target file path.
+    data_sample_format:
+        SEG-Y data sample format code.  The default (5) corresponds to
+        IEEE 32-bit floating point samples.
+    processing_note:
+        Optional textual note.  When supplied the message is embedded into the
+        textual header before writing the file.
+    """
+
+    if dataset.data.ndim != 2:
+        raise ValueError("Only 2D SEG-Y datasets can be written")
+
+    text_header = dataset.text_header
+    if processing_note:
+        text_header = _append_processing_note(text_header, processing_note)
+
+    encoded_text = _encode_text_header(text_header)
+    binary_header = dataset.binary_header.updated(
+        samples_per_trace=dataset.n_samples,
+        sample_interval_us=dataset.sample_interval_us,
+        data_sample_format=data_sample_format,
+    )
+
+    headers = _prepare_trace_headers_for_writing(
+        dataset.trace_headers,
+        n_traces=dataset.n_traces,
+        n_samples=dataset.n_samples,
+        sample_interval_us=dataset.sample_interval_us,
+        endianness=binary_header.endianness,
+    )
+
+    endian_prefix = ">" if binary_header.endianness == "big" else "<"
+    dtype = np.dtype(f"{endian_prefix}f4") if data_sample_format == 5 else None
+    if data_sample_format != 5:
+        raise NotImplementedError(
+            "write_segy currently only supports IEEE 32-bit float output"
+        )
+
+    path = Path(path)
+    with path.open("wb") as fp:
+        fp.write(encoded_text)
+        fp.write(binary_header.raw_bytes)
+        for trace, header in zip(dataset.data, headers):
+            fp.write(header.raw_bytes)
+            fp.write(np.asarray(trace, dtype=dtype).tobytes())
+
+
+def _prepare_trace_headers_for_writing(
+    headers: Sequence[TraceHeader],
+    *,
+    n_traces: int,
+    n_samples: int,
+    sample_interval_us: int,
+    endianness: str,
+) -> List[TraceHeader]:
+    if not headers:
+        raise ValueError("SEG-Y dataset does not contain trace headers")
+
+    prepared: List[TraceHeader] = []
+    src_count = len(headers)
+    for idx in range(n_traces):
+        if src_count == 1:
+            template = headers[0]
+        else:
+            src_idx = int(round(idx * (src_count - 1) / max(n_traces - 1, 1)))
+            template = headers[src_idx]
+        updated = template.updated(
+            endianness=endianness,
+            trace_sequence_line=idx + 1,
+            trace_sequence_file=idx + 1,
+            trace_number_within_field_record=idx + 1,
+            trace_number_within_ensemble=idx + 1,
+            samples_in_trace=n_samples,
+            sample_interval_us=sample_interval_us,
+        )
+        prepared.append(updated)
+    return prepared
 
 
 def _decode_text_header(data: bytes) -> str:

@@ -17,6 +17,7 @@ def plot_amplitude_image(
     clip_percentile: float = 99.0,
     figsize: Optional[tuple[float, float]] = None,
     ax: Optional[plt.Axes] = None,
+    show: bool = True,
 ) -> plt.Axes:
     """Plot a seismic section using :func:`matplotlib.pyplot.imshow`.
 
@@ -33,6 +34,9 @@ def plot_amplitude_image(
         Optional figure size in inches when ``ax`` is not supplied.
     ax:
         Optional axes object to reuse.
+    show:
+        When ``True`` call :func:`matplotlib.pyplot.show` so the plot is
+        displayed immediately.
     """
 
     if ax is None:
@@ -57,6 +61,8 @@ def plot_amplitude_image(
     ax.set_ylabel("Time [s]")
     ax.set_title("Amplitude section")
     fig.tight_layout()
+    if show:
+        plt.show()
     return ax
 
 
@@ -69,6 +75,30 @@ def plot_wiggle_section(
     fill_positive: bool = True,
     ax: Optional[plt.Axes] = None,
     figsize: Optional[tuple[float, float]] = None,
+    show: bool = True,
+) -> plt.Axes:
+    """Plot a wiggle-trace seismic section.
+
+    Parameters
+    ----------
+    dataset:
+        Dataset containing the traces to display.
+    trace_indices:
+        Optional subset of trace indices to plot.
+    scale:
+        Scalar applied to the trace amplitudes.
+    color:
+        Line colour for the wiggles and filled area.
+    fill_positive:
+        When ``True`` fill positive lobes to mimic classic seismic plots.
+    ax:
+        Optional axes object to reuse.
+    figsize:
+        Figure size when ``ax`` is not supplied.
+    show:
+        When ``True`` call :func:`matplotlib.pyplot.show` so the plot is
+        displayed immediately.
+    """
 ) -> plt.Axes:
     """Plot a wiggle-trace seismic section."""
 
@@ -105,4 +135,6 @@ def plot_wiggle_section(
     ax.set_ylabel("Time [s]")
     ax.set_title("Wiggle section")
     fig.tight_layout()
+    if show:
+        plt.show()
     return ax

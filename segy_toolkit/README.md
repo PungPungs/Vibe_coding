@@ -12,6 +12,7 @@ The code in this folder is split across three modules:
 | ``io.py`` | Low level reader that loads SEG-Y revision 1/2 files into the structured :class:`~segy_toolkit.io.SegyDataset` container.  It exposes :class:`~segy_toolkit.io.BinaryHeader` and :class:`~segy_toolkit.io.TraceHeader` data classes so header fields can be inspected programmatically. |
 | ``visualization.py`` | ``matplotlib`` based helpers for amplitude images and wiggle plots, ideal for quick QC figures. |
 | ``seafloor.py`` | Automatic seafloor picking (:func:`~segy_toolkit.seafloor.estimate_seafloor_horizon`) and flattening (:func:`~segy_toolkit.seafloor.flatten_to_seafloor`) routines. |
+| ``interpolation.py`` | Neural network driven interpolation utilities that can up-sample volumes and export SEG-Y files annotated with processing notes. |
 
 All modules are re-exported from ``segy_toolkit.__init__`` so the most common
 symbols can be imported directly via ``from segy_toolkit import ...``.
@@ -25,6 +26,15 @@ symbols can be imported directly via ``from segy_toolkit import ...``.
 - High level :class:`~segy_toolkit.io.SegyDataset` container that stores
   decoded headers and trace data as ``numpy`` arrays.
 - Quick-look plotting helpers for amplitude images and wiggle sections using
+  ``matplotlib`` that automatically display the figure (set ``show=False`` to
+  reuse axes in scripted workflows).
+- Seafloor picking and flattening routines that operate directly on the
+  :class:`~segy_toolkit.io.SegyDataset` object.
+- Neural network based interpolation that can densify the trace/time grid and
+  persist the result back to SEG-Y with a processing note embedded in the
+  textual header.
+- A light-weight :func:`~segy_toolkit.io.write_segy` helper for exporting
+  processed datasets back to disk.
   ``matplotlib``.
 - Seafloor picking and flattening routines that operate directly on the
   :class:`~segy_toolkit.io.SegyDataset` object.
@@ -50,6 +60,7 @@ from segy_toolkit import (
     BinaryHeader,
     SegyDataset,
     flatten_to_seafloor,
+    interpolate_and_export,
     plot_amplitude_image,
     read_segy,
 )
@@ -77,6 +88,15 @@ print("Reference trace index:", picks.reference_index)
 
 # Persist the flattened section if required
 np.save(Path("flattened.npy"), flattened.data)
+
+# Upsample the dataset and store a SEG-Y copy with a processing note
+interpolated = interpolate_and_export(
+    dataset,
+    "line_interpolated.sgy",
+    trace_factor=1.5,
+    sample_factor=1.25,
+)
+print("Interpolated trace count:", interpolated.n_traces)
 ```
 
 The ``flatten_to_seafloor`` function returns a new
@@ -99,6 +119,15 @@ When ``extrapolate=False`` the algorithm leaves samples outside the valid
 interval untouched which is helpful when post-processing muted data.
 The picker works entirely on ``numpy`` arrays so the results are deterministic
 and easily reproducible.
+
+The neural interpolation pipeline represents the amplitude field as a function
+of normalised trace/time coordinates and trains a compact fully connected
+network to minimise the mean squared error on available samples.  The fitted
+network is then evaluated on a denser grid, allowing trace/time up-sampling
+without requiring third-party machine learning frameworks.  The helper
+:func:`~segy_toolkit.interpolation.interpolate_and_export` automatically embeds
+``"C PROCESSING NOTE: ANN INTERPOLATION APPLIED"`` in the textual header of the
+generated SEG-Y file so downstream users can identify the interpolated volume.
 
 ## Limitations
 
