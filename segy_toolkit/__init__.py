@@ -13,6 +13,7 @@ from .interpolation import (
     interpolate_and_export,
     interpolate_dataset_with_ann,
 )
+from .io import BinaryHeader, SegyDataset, SegyReader, TraceHeader, read_segy
 from .visualization import plot_amplitude_image, plot_wiggle_section
 from .seafloor import estimate_seafloor_horizon, flatten_to_seafloor
 

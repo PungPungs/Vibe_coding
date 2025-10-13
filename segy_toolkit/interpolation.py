@@ -74,6 +74,9 @@ class NeuralTraceInterpolator:
         Torch dtype used during training and inference.
     """
 
+class NeuralTraceInterpolator:
+    """Simple fully connected neural network for trace interpolation."""
+
     def __init__(
         self,
         *,
@@ -138,6 +141,29 @@ class NeuralTraceInterpolator:
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
+        hidden_layers: Sequence[int] = (128, 128),
+        learning_rate: float = 1e-3,
+        random_state: Optional[int] = None,
+    ) -> None:
+        if input_dim <= 0:
+            raise ValueError("input_dim must be positive")
+        self.hidden_layers = tuple(int(layer) for layer in hidden_layers)
+        self.learning_rate = float(learning_rate)
+        self.random_state = random_state
+        self._rng = np.random.default_rng(random_state)
+
+        layer_dims = (input_dim, *self.hidden_layers, 1)
+        self.weights: list[np.ndarray] = []
+        self.biases: list[np.ndarray] = []
+        for in_dim, out_dim in zip(layer_dims[:-1], layer_dims[1:]):
+            limit = np.sqrt(6.0 / (in_dim + out_dim))
+            weight = self._rng.uniform(-limit, limit, size=(in_dim, out_dim)).astype(
+                np.float32
+            )
+            bias = np.zeros(out_dim, dtype=np.float32)
+            self.weights.append(weight)
+            self.biases.append(bias)
+
     def fit(
         self,
         features: np.ndarray,
@@ -146,6 +172,8 @@ class NeuralTraceInterpolator:
         epochs: int = 200,
         batch_size: int = 8192,
         shuffle: bool = True,
+        epochs: int = 400,
+        batch_size: int = 8192,
     ) -> None:
         """Train the network using mean squared error loss."""
 
@@ -246,6 +274,76 @@ class NeuralTraceInterpolator:
         self.device = torch.device(device)
         self.model.to(self.device, dtype=self.dtype)
         return self
+        if X.ndim != 2 or X.shape[1] != self.weights[0].shape[0]:
+            raise ValueError("features must be of shape (n_samples, input_dim)")
+        if y.shape[0] != X.shape[0]:
+            raise ValueError("targets must contain the same number of samples")
+
+        n_samples = X.shape[0]
+        batch_size = max(1, int(batch_size))
+        for _ in range(max(1, int(epochs))):
+            indices = self._rng.permutation(n_samples)
+            for start in range(0, n_samples, batch_size):
+                batch_idx = indices[start : start + batch_size]
+                xb = X[batch_idx]
+                yb = y[batch_idx]
+                activations, preactivations = self._forward(xb)
+                grads_w, grads_b = self._backward(activations, preactivations, yb)
+                self._apply_gradients(grads_w, grads_b)
+
+    def predict(self, features: np.ndarray) -> np.ndarray:
+        """Return network predictions for ``features``."""
+
+        X = np.asarray(features, dtype=np.float32)
+        activations, _ = self._forward(X)
+        return activations[-1]
+
+    # Internal helpers -------------------------------------------------
+
+    def _forward(self, X: np.ndarray) -> tuple[list[np.ndarray], list[np.ndarray]]:
+        activations = [X]
+        preactivations: list[np.ndarray] = []
+        output = X
+        for weight, bias in zip(self.weights, self.biases):
+            z = output @ weight + bias
+            preactivations.append(z)
+            output = z
+            if weight is not self.weights[-1]:
+                output = np.maximum(0.0, output)
+            activations.append(output)
+        return activations, preactivations
+
+    def _backward(
+        self,
+        activations: list[np.ndarray],
+        preactivations: list[np.ndarray],
+        targets: np.ndarray,
+    ) -> tuple[list[np.ndarray], list[np.ndarray]]:
+        m = targets.shape[0]
+        if m == 0:
+            raise ValueError("cannot backpropagate on an empty batch")
+        grads_w: list[np.ndarray] = []
+        grads_b: list[np.ndarray] = []
+        delta = (activations[-1] - targets) * (2.0 / m)
+        for layer in reversed(range(len(self.weights))):
+            a_prev = activations[layer]
+            dz = delta
+            if layer < len(self.weights) - 1:
+                relu_grad = (preactivations[layer] > 0).astype(np.float32)
+                dz = delta * relu_grad
+            grad_w = a_prev.T @ dz
+            grad_b = dz.sum(axis=0)
+            grads_w.insert(0, grad_w)
+            grads_b.insert(0, grad_b)
+            delta = dz @ self.weights[layer].T
+        return grads_w, grads_b
+
+    def _apply_gradients(
+        self, grads_w: Iterable[np.ndarray], grads_b: Iterable[np.ndarray]
+    ) -> None:
+        for i, (gw, gb) in enumerate(zip(grads_w, grads_b)):
+            self.weights[i] -= self.learning_rate * gw.astype(np.float32)
+            self.biases[i] -= self.learning_rate * gb.astype(np.float32)
 
 
 def interpolate_dataset_with_ann(
@@ -265,6 +363,14 @@ def interpolate_dataset_with_ann(
     processing_note: str = "ANN INTERPOLATION (PYTORCH) APPLIED",
 ) -> SegyDataset:
     """Upsample a SEG-Y dataset using a PyTorch based neural interpolator."""
+    hidden_layers: Sequence[int] = (128, 128),
+    epochs: int = 400,
+    learning_rate: float = 1e-3,
+    batch_size: int = 8192,
+    random_state: Optional[int] = None,
+    processing_note: str = "ANN INTERPOLATION APPLIED",
+) -> SegyDataset:
+    """Upsample a SEG-Y dataset using a small fully connected ANN."""
 
     if trace_factor < 1.0 or sample_factor < 1.0:
         raise ValueError("trace_factor and sample_factor must be >= 1.0")
@@ -277,6 +383,9 @@ def interpolate_dataset_with_ann(
     trace_coords = np.linspace(0.0, 1.0, n_traces, dtype=np.float32)
     sample_coords = np.linspace(0.0, 1.0, n_samples, dtype=np.float32)
     trace_grid, sample_grid = np.meshgrid(trace_coords, sample_coords, indexing="ij")
+    trace_grid, sample_grid = np.meshgrid(
+        trace_coords, sample_coords, indexing="ij"
+    )
     features = np.column_stack((trace_grid.ravel(), sample_grid.ravel()))
     targets = traces.reshape(-1, 1)
 
@@ -304,6 +413,7 @@ def interpolate_dataset_with_ann(
     new_features = np.column_stack((new_trace_grid.ravel(), new_sample_grid.ravel()))
     predictions = model.predict(new_features, batch_size=prediction_batch_size)
     prediction_grid = predictions.reshape(target_traces, target_samples)
+    predictions = model.predict(new_features).reshape(target_traces, target_samples)
 
     if target_samples == n_samples:
         new_sample_interval_us = dataset.sample_interval_us
@@ -331,6 +441,7 @@ def interpolate_dataset_with_ann(
     return replace(
         dataset,
         data=prediction_grid.astype(np.float32),
+        data=predictions.astype(np.float32),
         binary_header=new_binary_header,
         trace_headers=new_trace_headers,
         text_header=_normalize_text_header(new_text_header),
@@ -354,6 +465,12 @@ def interpolate_and_export(
     progress: bool = True,
     resource_monitor: bool = True,
     processing_note: str = "ANN INTERPOLATION (PYTORCH) APPLIED",
+    hidden_layers: Sequence[int] = (128, 128),
+    epochs: int = 400,
+    learning_rate: float = 1e-3,
+    batch_size: int = 8192,
+    random_state: Optional[int] = None,
+    processing_note: str = "ANN INTERPOLATION APPLIED",
 ) -> SegyDataset:
     """Interpolate ``dataset`` and immediately write it to ``path``."""
 
@@ -373,6 +490,9 @@ def interpolate_and_export(
         processing_note=processing_note,
     )
 
+        random_state=random_state,
+        processing_note=processing_note,
+    )
     from .io import write_segy
 
     write_segy(interpolated, path)

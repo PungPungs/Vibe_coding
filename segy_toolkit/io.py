@@ -13,6 +13,7 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import ClassVar, Dict, List, Optional, Sequence
+from typing import ClassVar, Dict, List, Optional
 import codecs
 import io
 import os
@@ -293,6 +294,8 @@ class TraceHeader:
 
 
 @dataclass
+
+@dataclass(frozen=True)
 class SegyDataset:
     """Container object storing SEG-Y traces and metadata."""
 
