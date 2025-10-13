@@ -99,6 +99,8 @@ def plot_wiggle_section(
         When ``True`` call :func:`matplotlib.pyplot.show` so the plot is
         displayed immediately.
     """
+) -> plt.Axes:
+    """Plot a wiggle-trace seismic section."""
 
     traces = dataset.data
     time_axis = dataset.time_axis

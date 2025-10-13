@@ -35,6 +35,9 @@ symbols can be imported directly via ``from segy_toolkit import ...``.
   textual header.
 - A light-weight :func:`~segy_toolkit.io.write_segy` helper for exporting
   processed datasets back to disk.
+  ``matplotlib``.
+- Seafloor picking and flattening routines that operate directly on the
+  :class:`~segy_toolkit.io.SegyDataset` object.
 
 ## Installation
 
