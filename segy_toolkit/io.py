@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import ClassVar, Dict, List, Optional
 import codecs
 import io
 import os
@@ -26,12 +26,216 @@ _TRACE_HEADER_SIZE = 240
 
 
 @dataclass(frozen=True)
+class BinaryHeader:
+    """Structured representation of the 400 byte binary header."""
+
+    job_id: int
+    line_number: int
+    reel_number: int
+    sample_interval_us: int
+    samples_per_trace: int
+    data_sample_format: int
+    ensemble_fold: int
+    trace_sorting_code: int
+    vertical_sum_code: int
+    segy_revision: int
+    fixed_length_traces: int
+    extended_textual_header_count: int
+    endianness: str
+    raw_bytes: bytes
+
+    _FIELDS: ClassVar[tuple[tuple[str, str, int], ...]] = (
+        ("job_id", "i", 0),
+        ("line_number", "i", 4),
+        ("reel_number", "i", 8),
+        ("sample_interval_us", "H", 16),
+        ("samples_per_trace", "H", 20),
+        ("data_sample_format", "H", 24),
+        ("ensemble_fold", "H", 26),
+        ("trace_sorting_code", "H", 28),
+        ("vertical_sum_code", "H", 30),
+        ("segy_revision", "h", 300),
+        ("fixed_length_traces", "h", 302),
+        ("extended_textual_header_count", "h", 304),
+    )
+
+    _SUPPORTED_SAMPLE_FORMATS: ClassVar[set[int]] = {
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        15,
+    }
+
+    @classmethod
+    def from_bytes(cls, data: bytes) -> "BinaryHeader":
+        """Parse a binary header, automatically resolving endianness."""
+
+        if len(data) != _BINARY_HEADER_SIZE:
+            raise ValueError("Binary header has unexpected size")
+
+        for endian, label in ((">", "big"), ("<", "little")):
+            values: Dict[str, int] = {}
+            for name, fmt, offset in cls._FIELDS:
+                struct_obj = struct.Struct(endian + fmt)
+                values[name] = struct_obj.unpack_from(data, offset)[0]
+
+            values["segy_revision"] = max(1, values["segy_revision"])
+
+            fmt_code = values["data_sample_format"]
+            if (
+                fmt_code in cls._SUPPORTED_SAMPLE_FORMATS
+                and values["samples_per_trace"] > 0
+                and values["sample_interval_us"] > 0
+            ):
+                return cls(raw_bytes=data, endianness=label, **values)
+
+        raise ValueError("Unable to determine SEG-Y binary header endianness")
+
+    def to_dict(self) -> Dict[str, int | bytes | str]:
+        return {
+            "job_id": self.job_id,
+            "line_number": self.line_number,
+            "reel_number": self.reel_number,
+            "sample_interval_us": self.sample_interval_us,
+            "samples_per_trace": self.samples_per_trace,
+            "data_sample_format": self.data_sample_format,
+            "ensemble_fold": self.ensemble_fold,
+            "trace_sorting_code": self.trace_sorting_code,
+            "vertical_sum_code": self.vertical_sum_code,
+            "segy_revision": self.segy_revision,
+            "fixed_length_traces": self.fixed_length_traces,
+            "extended_textual_header_count": self.extended_textual_header_count,
+            "endianness": self.endianness,
+            "_raw_bytes": self.raw_bytes,
+        }
+
+
+@dataclass(frozen=True)
+class TraceHeader:
+    """Structured representation of the 240 byte trace header."""
+
+    trace_sequence_line: int
+    trace_sequence_file: int
+    field_record_number: int
+    trace_number_within_field_record: int
+    energy_source_point: int
+    ensemble_number: int
+    trace_number_within_ensemble: int
+    trace_identification_code: int
+    coordinate_scalar: int
+    source_x: int
+    source_y: int
+    group_x: int
+    group_y: int
+    samples_in_trace: int
+    sample_interval_us: int
+    gain_type: int
+    instrument_gain_constant: int
+    instrument_early_gain: int
+    correlated: int
+    sweep_frequency_start: int
+    sweep_frequency_end: int
+    sweep_length_ms: int
+    sweep_type: int
+    trace_measurement_system: int
+    scalar_to_be_applied: int
+    source_measurement: int
+    source_measurement_unit: int
+    raw_bytes: bytes
+
+    _FIELDS: ClassVar[tuple[tuple[str, str, int], ...]] = (
+        ("trace_sequence_line", "i", 0),
+        ("trace_sequence_file", "i", 4),
+        ("field_record_number", "i", 8),
+        ("trace_number_within_field_record", "i", 12),
+        ("energy_source_point", "i", 16),
+        ("ensemble_number", "i", 20),
+        ("trace_number_within_ensemble", "i", 24),
+        ("trace_identification_code", "h", 28),
+        ("coordinate_scalar", "h", 68),
+        ("source_x", "i", 72),
+        ("source_y", "i", 76),
+        ("group_x", "i", 80),
+        ("group_y", "i", 84),
+        ("samples_in_trace", "H", 114),
+        ("sample_interval_us", "H", 116),
+        ("gain_type", "h", 118),
+        ("instrument_gain_constant", "h", 120),
+        ("instrument_early_gain", "h", 122),
+        ("correlated", "h", 124),
+        ("sweep_frequency_start", "h", 126),
+        ("sweep_frequency_end", "h", 128),
+        ("sweep_length_ms", "h", 130),
+        ("sweep_type", "h", 132),
+        ("trace_measurement_system", "h", 168),
+        ("scalar_to_be_applied", "h", 170),
+        ("source_measurement", "i", 172),
+        ("source_measurement_unit", "h", 176),
+    )
+
+    @classmethod
+    def from_bytes(cls, data: bytes, *, endianness: str) -> "TraceHeader":
+        if len(data) != _TRACE_HEADER_SIZE:
+            raise ValueError("Trace header has unexpected size")
+
+        endian = ">" if endianness == "big" else "<"
+        values: Dict[str, int] = {}
+        for name, fmt, offset in cls._FIELDS:
+            struct_obj = struct.Struct(endian + fmt)
+            values[name] = struct_obj.unpack_from(data, offset)[0]
+
+        return cls(raw_bytes=data, **values)
+
+    def to_dict(self) -> Dict[str, int | bytes]:
+        result: Dict[str, int | bytes] = {
+            "trace_sequence_line": self.trace_sequence_line,
+            "trace_sequence_file": self.trace_sequence_file,
+            "field_record_number": self.field_record_number,
+            "trace_number_within_field_record": self.trace_number_within_field_record,
+            "energy_source_point": self.energy_source_point,
+            "ensemble_number": self.ensemble_number,
+            "trace_number_within_ensemble": self.trace_number_within_ensemble,
+            "trace_identification_code": self.trace_identification_code,
+            "coordinate_scalar": self.coordinate_scalar,
+            "source_x": self.source_x,
+            "source_y": self.source_y,
+            "group_x": self.group_x,
+            "group_y": self.group_y,
+            "samples_in_trace": self.samples_in_trace,
+            "sample_interval_us": self.sample_interval_us,
+            "gain_type": self.gain_type,
+            "instrument_gain_constant": self.instrument_gain_constant,
+            "instrument_early_gain": self.instrument_early_gain,
+            "correlated": self.correlated,
+            "sweep_frequency_start": self.sweep_frequency_start,
+            "sweep_frequency_end": self.sweep_frequency_end,
+            "sweep_length_ms": self.sweep_length_ms,
+            "sweep_type": self.sweep_type,
+            "trace_measurement_system": self.trace_measurement_system,
+            "scalar_to_be_applied": self.scalar_to_be_applied,
+            "source_measurement": self.source_measurement,
+            "source_measurement_unit": self.source_measurement_unit,
+            "_raw_bytes": self.raw_bytes,
+        }
+        return result
+
+
+@dataclass(frozen=True)
 class SegyDataset:
     """Container object storing SEG-Y traces and metadata."""
 
     text_header: str
-    binary_header: Dict[str, int | bytes]
-    trace_headers: List[Dict[str, int | bytes]]
+    binary_header: BinaryHeader
+    trace_headers: List[TraceHeader]
     data: np.ndarray
     sample_interval_us: int
     revision: int
@@ -61,6 +265,16 @@ class SegyDataset:
         dt = self.sample_interval_us / 1_000_000.0
         return np.arange(self.n_samples, dtype=float) * dt
 
+    def binary_header_dict(self) -> Dict[str, int | bytes | str]:
+        """Return the binary header as a dictionary."""
+
+        return self.binary_header.to_dict()
+
+    def trace_header_dicts(self) -> List[Dict[str, int | bytes]]:
+        """Return a list with all trace headers converted to dictionaries."""
+
+        return [header.to_dict() for header in self.trace_headers]
+
 
 class SegyReader:
     """Reader capable of parsing SEG-Y revision 1 and 2 files."""
@@ -75,13 +289,13 @@ class SegyReader:
             if len(binary_header_bytes) != _BINARY_HEADER_SIZE:
                 raise IOError("Truncated binary header")
 
-            binary_header = _parse_binary_header(binary_header_bytes)
-            binary_header["_raw_bytes"] = binary_header_bytes
+            binary_header = BinaryHeader.from_bytes(binary_header_bytes)
 
             traces, trace_headers = _read_traces(
                 fp,
-                samples_per_trace=binary_header["samples_per_trace"],
-                format_code=binary_header["data_sample_format"],
+                samples_per_trace=binary_header.samples_per_trace,
+                format_code=binary_header.data_sample_format,
+                endianness=binary_header.endianness,
             )
 
             dataset = SegyDataset(
@@ -89,8 +303,8 @@ class SegyReader:
                 binary_header=binary_header,
                 trace_headers=trace_headers,
                 data=traces,
-                sample_interval_us=binary_header["sample_interval_us"],
-                revision=binary_header.get("segy_revision", 1),
+                sample_interval_us=binary_header.sample_interval_us,
+                revision=binary_header.segy_revision,
                 path=self.path,
             )
             return dataset
@@ -112,90 +326,15 @@ def _decode_text_header(data: bytes) -> str:
         return codecs.decode(data, "cp500", errors="replace")
 
 
-def _parse_binary_header(data: bytes) -> Dict[str, int]:
-    if len(data) != _BINARY_HEADER_SIZE:
-        raise ValueError("Binary header has unexpected size")
-
-    def _read(fmt: str, offset: int) -> int:
-        size = struct.calcsize(fmt)
-        return struct.unpack(fmt, data[offset : offset + size])[0]
-
-    header = {
-        "job_id": _read(">i", 0),
-        "line_number": _read(">i", 4),
-        "reel_number": _read(">i", 8),
-        "sample_interval_us": _read(">H", 16),
-        "samples_per_trace": _read(">H", 20),
-        "data_sample_format": _read(">H", 24),
-        "ensemble_fold": _read(">H", 26),
-        "trace_sorting_code": _read(">H", 28),
-        "vertical_sum_code": _read(">H", 30),
-        "segy_revision": max(1, _read(">h", 300)),
-        "fixed_length_traces": _read(">h", 302),
-        "extended_textual_header_count": _read(">h", 304),
-    }
-
-    return header
-
-
-def _parse_trace_header(data: bytes) -> Dict[str, int | bytes]:
-    if len(data) != _TRACE_HEADER_SIZE:
-        raise ValueError("Trace header has unexpected size")
-
-    def _read(fmt: str, offset: int) -> int:
-        size = struct.calcsize(fmt)
-        return struct.unpack(fmt, data[offset : offset + size])[0]
-
-    header: Dict[str, int | bytes] = {
-        "trace_sequence_line": _read(">i", 0),
-        "trace_sequence_file": _read(">i", 4),
-        "field_record_number": _read(">i", 8),
-        "trace_number_within_field_record": _read(">i", 12),
-        "energy_source_point": _read(">i", 16),
-        "ensemble_number": _read(">i", 20),
-        "trace_number_within_ensemble": _read(">i", 24),
-        "trace_identification_code": _read(">h", 28),
-        "coordinate_scalar": _read(">h", 68),
-        "source_x": _read(">i", 72),
-        "source_y": _read(">i", 76),
-        "group_x": _read(">i", 80),
-        "group_y": _read(">i", 84),
-        "elevation_receiver": _read(">i", 88),
-        "elevation_source": _read(">i", 92),
-        "surface_elevation_source": _read(">i", 96),
-        "source_depth": _read(">i", 100),
-        "datum_shift_receiver": _read(">i", 104),
-        "datum_shift_source": _read(">i", 108),
-        "water_depth_source": _read(">i", 112),
-        "water_depth_group": _read(">i", 116),
-        "samples_in_trace": _read(">H", 114),
-        "sample_interval_us": _read(">H", 116),
-        "gain_type": _read(">h", 118),
-        "instrument_gain_constant": _read(">h", 120),
-        "instrument_early_gain": _read(">h", 122),
-        "correlated": _read(">h", 124),
-        "sweep_frequency_start": _read(">h", 126),
-        "sweep_frequency_end": _read(">h", 128),
-        "sweep_length_ms": _read(">h", 130),
-        "sweep_type": _read(">h", 132),
-        "trace_measurement_system": _read(">h", 168),
-        "scalar_to_be_applied": _read(">h", 170),
-        "source_measurement": _read(">i", 172),
-        "source_measurement_unit": _read(">h", 176),
-        "samples_in_trace_override": _read(">H", 114),
-        "_raw_bytes": data,
-    }
-
-    return header
-
-
 def _read_traces(
     fp: io.BufferedReader,
     samples_per_trace: int,
     format_code: int,
-) -> tuple[np.ndarray, List[Dict[str, int | bytes]]]:
+    *,
+    endianness: str,
+) -> tuple[np.ndarray, List[TraceHeader]]:
     traces: List[np.ndarray] = []
-    headers: List[Dict[str, int | bytes]] = []
+    headers: List[TraceHeader] = []
     sample_size = _data_sample_size(format_code)
 
     while True:
@@ -205,14 +344,16 @@ def _read_traces(
         if len(header_bytes) != _TRACE_HEADER_SIZE:
             raise IOError("Truncated trace header")
 
-        header = _parse_trace_header(header_bytes)
-        this_trace_samples = header.get("samples_in_trace") or samples_per_trace
+        header = TraceHeader.from_bytes(header_bytes, endianness=endianness)
+        this_trace_samples = header.samples_in_trace or samples_per_trace
         bytes_needed = this_trace_samples * sample_size
         trace_bytes = fp.read(bytes_needed)
         if len(trace_bytes) != bytes_needed:
             raise IOError("Truncated trace data")
 
-        trace = _decode_trace_samples(trace_bytes, format_code, this_trace_samples)
+        trace = _decode_trace_samples(
+            trace_bytes, format_code, this_trace_samples, endianness=endianness
+        )
         traces.append(trace)
         headers.append(header)
 
@@ -248,22 +389,35 @@ def _data_sample_size(format_code: int) -> int:
     return sizes[format_code]
 
 
-def _decode_trace_samples(data: bytes, format_code: int, n_samples: int) -> np.ndarray:
+def _decode_trace_samples(
+    data: bytes, format_code: int, n_samples: int, *, endianness: str
+) -> np.ndarray:
+    dtype_prefix = ">" if endianness == "big" else "<"
     if format_code == 1:
-        raw = np.frombuffer(data, dtype=">u4", count=n_samples)
+        raw = np.frombuffer(data, dtype=f"{dtype_prefix}u4", count=n_samples)
         return _ibm_to_ieee(raw)
     if format_code == 2:
-        return np.frombuffer(data, dtype=">i4", count=n_samples).astype(np.float32)
+        return np.frombuffer(data, dtype=f"{dtype_prefix}i4", count=n_samples).astype(
+            np.float32
+        )
     if format_code == 3:
-        return np.frombuffer(data, dtype=">i2", count=n_samples).astype(np.float32)
+        return np.frombuffer(data, dtype=f"{dtype_prefix}i2", count=n_samples).astype(
+            np.float32
+        )
     if format_code == 5:
-        return np.frombuffer(data, dtype=">f4", count=n_samples)
+        return np.frombuffer(data, dtype=f"{dtype_prefix}f4", count=n_samples)
     if format_code == 6 or format_code == 9:
-        return np.frombuffer(data, dtype=">f8", count=n_samples).astype(np.float32)
+        return np.frombuffer(data, dtype=f"{dtype_prefix}f8", count=n_samples).astype(
+            np.float32
+        )
     if format_code == 8:
-        return np.frombuffer(data, dtype=">i1", count=n_samples).astype(np.float32)
+        return np.frombuffer(data, dtype=f"{dtype_prefix}i1", count=n_samples).astype(
+            np.float32
+        )
     if format_code == 4:
-        return np.frombuffer(data, dtype=">i4", count=n_samples).astype(np.float32)
+        return np.frombuffer(data, dtype=f"{dtype_prefix}i4", count=n_samples).astype(
+            np.float32
+        )
     if format_code in {7, 10, 11, 12, 15}:
         raise NotImplementedError(
             f"SEG-Y data sample format code {format_code} is not yet supported"
