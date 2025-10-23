@@ -1,9 +1,0 @@
-# Core dependencies
-pypdf>=3.17.0
-
-# LangChain integration (optional)
-langchain>=0.1.0
-pydantic>=2.0.0
-
-# For CLI usage
-pathlib2; python_version < '3.4'
