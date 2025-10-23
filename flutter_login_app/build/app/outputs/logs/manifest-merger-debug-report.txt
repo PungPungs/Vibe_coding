@@ -1,0 +1,115 @@
+-- Merging decision tree log ---
+application
+INJECTED from C:\dev\Code\Vibe_coding\flutter_login_app\android\app\src\main\AndroidManifest.xml:2:5-32:19
+MERGED from [androidx.window:window:1.0.0-beta04] C:\Users\keyha\.gradle\caches\transforms-4\a964b1d3a98c94510876c23829622bfd\transformed\jetified-window-1.0.0-beta04\AndroidManifest.xml:24:5-31:19
+MERGED from [androidx.window:window:1.0.0-beta04] C:\Users\keyha\.gradle\caches\transforms-4\a964b1d3a98c94510876c23829622bfd\transformed\jetified-window-1.0.0-beta04\AndroidManifest.xml:24:5-31:19
+MERGED from [androidx.core:core:1.6.0] C:\Users\keyha\.gradle\caches\transforms-4\8314444ab24fdf563c4494a71e4bc859\transformed\core-1.6.0\AndroidManifest.xml:24:5-89
+MERGED from [androidx.core:core:1.6.0] C:\Users\keyha\.gradle\caches\transforms-4\8314444ab24fdf563c4494a71e4bc859\transformed\core-1.6.0\AndroidManifest.xml:24:5-89
+MERGED from [androidx.versionedparcelable:versionedparcelable:1.1.1] C:\Users\keyha\.gradle\caches\transforms-4\fbdf8ef6e8254d029ec082bffd1d191f\transformed\versionedparcelable-1.1.1\AndroidManifest.xml:24:5-25:19
+MERGED from [androidx.versionedparcelable:versionedparcelable:1.1.1] C:\Users\keyha\.gradle\caches\transforms-4\fbdf8ef6e8254d029ec082bffd1d191f\transformed\versionedparcelable-1.1.1\AndroidManifest.xml:24:5-25:19
+	android:appComponentFactory
+		ADDED from [androidx.core:core:1.6.0] C:\Users\keyha\.gradle\caches\transforms-4\8314444ab24fdf563c4494a71e4bc859\transformed\core-1.6.0\AndroidManifest.xml:24:18-86
+	android:name
+		INJECTED from C:\dev\Code\Vibe_coding\flutter_login_app\android\app\src\main\AndroidManifest.xml
+manifest
+ADDED from C:\dev\Code\Vibe_coding\flutter_login_app\android\app\src\main\AndroidManifest.xml:1:1-33:12
+INJECTED from C:\dev\Code\Vibe_coding\flutter_login_app\android\app\src\main\AndroidManifest.xml:1:1-33:12
+INJECTED from C:\dev\Code\Vibe_coding\flutter_login_app\android\app\src\main\AndroidManifest.xml:1:1-33:12
+INJECTED from C:\dev\Code\Vibe_coding\flutter_login_app\android\app\src\main\AndroidManifest.xml:1:1-33:12
+MERGED from C:\dev\Code\Vibe_coding\flutter_login_app\android\app\src\main\AndroidManifest.xml:1:1-33:12
+MERGED from [androidx.window:window-java:1.0.0-beta04] C:\Users\keyha\.gradle\caches\transforms-4\6c7a8f56c6c41b565c355e1de3f0ca6e\transformed\jetified-window-java-1.0.0-beta04\AndroidManifest.xml:17:1-23:12
+MERGED from [androidx.window:window:1.0.0-beta04] C:\Users\keyha\.gradle\caches\transforms-4\a964b1d3a98c94510876c23829622bfd\transformed\jetified-window-1.0.0-beta04\AndroidManifest.xml:17:1-33:12
+MERGED from [androidx.fragment:fragment:1.1.0] C:\Users\keyha\.gradle\caches\transforms-4\ba359c88f15fd2673c6793e4f799b6ad\transformed\fragment-1.1.0\AndroidManifest.xml:17:1-24:12
+MERGED from [androidx.viewpager:viewpager:1.0.0] C:\Users\keyha\.gradle\caches\transforms-4\3c9800504106ae95647510f0e37e622c\transformed\viewpager-1.0.0\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.loader:loader:1.0.0] C:\Users\keyha\.gradle\caches\transforms-4\3ff591794996a0b30b9438bdc1f8937c\transformed\loader-1.0.0\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.activity:activity:1.0.0] C:\Users\keyha\.gradle\caches\transforms-4\d815094445c10379f19f1eb1863a444c\transformed\jetified-activity-1.0.0\AndroidManifest.xml:17:1-24:12
+MERGED from [androidx.customview:customview:1.0.0] C:\Users\keyha\.gradle\caches\transforms-4\15849d48bd57b74c903361bc7c4f72fe\transformed\customview-1.0.0\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.core:core:1.6.0] C:\Users\keyha\.gradle\caches\transforms-4\8314444ab24fdf563c4494a71e4bc859\transformed\core-1.6.0\AndroidManifest.xml:17:1-26:12
+MERGED from [androidx.lifecycle:lifecycle-runtime:2.2.0] C:\Users\keyha\.gradle\caches\transforms-4\50c4f87644e4b82e92e2a5921e7cd5fb\transformed\lifecycle-runtime-2.2.0\AndroidManifest.xml:17:1-24:12
+MERGED from [androidx.savedstate:savedstate:1.0.0] C:\Users\keyha\.gradle\caches\transforms-4\d05fb96dc07e8b08cf2bfcb06fbc1dd0\transformed\jetified-savedstate-1.0.0\AndroidManifest.xml:17:1-24:12
+MERGED from [androidx.lifecycle:lifecycle-livedata:2.0.0] C:\Users\keyha\.gradle\caches\transforms-4\8b16f1de8bca1111c78d137c07bc8ee5\transformed\lifecycle-livedata-2.0.0\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.lifecycle:lifecycle-livedata-core:2.0.0] C:\Users\keyha\.gradle\caches\transforms-4\ecf027f156f048a3ebd84259b6fcdb2d\transformed\lifecycle-livedata-core-2.0.0\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.tracing:tracing:1.0.0] C:\Users\keyha\.gradle\caches\transforms-4\2df27fe13582e3362bc03b1cf3b51784\transformed\jetified-tracing-1.0.0\AndroidManifest.xml:17:1-24:12
+MERGED from [androidx.arch.core:core-runtime:2.0.0] C:\Users\keyha\.gradle\caches\transforms-4\74641be187ba8934b7512cb665d928b1\transformed\core-runtime-2.0.0\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.versionedparcelable:versionedparcelable:1.1.1] C:\Users\keyha\.gradle\caches\transforms-4\fbdf8ef6e8254d029ec082bffd1d191f\transformed\versionedparcelable-1.1.1\AndroidManifest.xml:17:1-27:12
+MERGED from [androidx.lifecycle:lifecycle-viewmodel:2.1.0] C:\Users\keyha\.gradle\caches\transforms-4\d785e271d1359d77e95773613d863999\transformed\lifecycle-viewmodel-2.1.0\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.annotation:annotation-experimental:1.1.0] C:\Users\keyha\.gradle\caches\transforms-4\ee79a556be603a692219c16ea84512a4\transformed\jetified-annotation-experimental-1.1.0\AndroidManifest.xml:17:1-24:12
+INJECTED from C:\dev\Code\Vibe_coding\flutter_login_app\android\app\src\debug\AndroidManifest.xml:1:1-7:12
+INJECTED from C:\dev\Code\Vibe_coding\flutter_login_app\android\app\src\debug\AndroidManifest.xml:1:1-7:12
+INJECTED from C:\dev\Code\Vibe_coding\flutter_login_app\android\app\src\debug\AndroidManifest.xml:1:1-7:12
+	package
+		INJECTED from C:\dev\Code\Vibe_coding\flutter_login_app\android\app\src\main\AndroidManifest.xml
+		ADDED from C:\dev\Code\Vibe_coding\flutter_login_app\android\app\src\main\AndroidManifest.xml:1:1-33:12
+		INJECTED from C:\dev\Code\Vibe_coding\flutter_login_app\android\app\src\debug\AndroidManifest.xml
+	android:versionName
+		INJECTED from C:\dev\Code\Vibe_coding\flutter_login_app\android\app\src\main\AndroidManifest.xml
+		ADDED from C:\dev\Code\Vibe_coding\flutter_login_app\android\app\src\main\AndroidManifest.xml:1:1-33:12
+		INJECTED from C:\dev\Code\Vibe_coding\flutter_login_app\android\app\src\debug\AndroidManifest.xml
+	android:versionCode
+		INJECTED from C:\dev\Code\Vibe_coding\flutter_login_app\android\app\src\main\AndroidManifest.xml
+		ADDED from C:\dev\Code\Vibe_coding\flutter_login_app\android\app\src\main\AndroidManifest.xml:1:1-33:12
+		INJECTED from C:\dev\Code\Vibe_coding\flutter_login_app\android\app\src\debug\AndroidManifest.xml
+	xmlns:android
+		ADDED from C:\dev\Code\Vibe_coding\flutter_login_app\android\app\src\main\AndroidManifest.xml:1:11-69
+uses-sdk
+INJECTED from C:\dev\Code\Vibe_coding\flutter_login_app\android\app\src\main\AndroidManifest.xml reason: use-sdk injection requested
+INJECTED from C:\dev\Code\Vibe_coding\flutter_login_app\android\app\src\main\AndroidManifest.xml
+INJECTED from C:\dev\Code\Vibe_coding\flutter_login_app\android\app\src\main\AndroidManifest.xml
+MERGED from [androidx.window:window-java:1.0.0-beta04] C:\Users\keyha\.gradle\caches\transforms-4\6c7a8f56c6c41b565c355e1de3f0ca6e\transformed\jetified-window-java-1.0.0-beta04\AndroidManifest.xml:19:5-21:41
+MERGED from [androidx.window:window-java:1.0.0-beta04] C:\Users\keyha\.gradle\caches\transforms-4\6c7a8f56c6c41b565c355e1de3f0ca6e\transformed\jetified-window-java-1.0.0-beta04\AndroidManifest.xml:19:5-21:41
+MERGED from [androidx.window:window:1.0.0-beta04] C:\Users\keyha\.gradle\caches\transforms-4\a964b1d3a98c94510876c23829622bfd\transformed\jetified-window-1.0.0-beta04\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.window:window:1.0.0-beta04] C:\Users\keyha\.gradle\caches\transforms-4\a964b1d3a98c94510876c23829622bfd\transformed\jetified-window-1.0.0-beta04\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.fragment:fragment:1.1.0] C:\Users\keyha\.gradle\caches\transforms-4\ba359c88f15fd2673c6793e4f799b6ad\transformed\fragment-1.1.0\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.fragment:fragment:1.1.0] C:\Users\keyha\.gradle\caches\transforms-4\ba359c88f15fd2673c6793e4f799b6ad\transformed\fragment-1.1.0\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.viewpager:viewpager:1.0.0] C:\Users\keyha\.gradle\caches\transforms-4\3c9800504106ae95647510f0e37e622c\transformed\viewpager-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.viewpager:viewpager:1.0.0] C:\Users\keyha\.gradle\caches\transforms-4\3c9800504106ae95647510f0e37e622c\transformed\viewpager-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.loader:loader:1.0.0] C:\Users\keyha\.gradle\caches\transforms-4\3ff591794996a0b30b9438bdc1f8937c\transformed\loader-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.loader:loader:1.0.0] C:\Users\keyha\.gradle\caches\transforms-4\3ff591794996a0b30b9438bdc1f8937c\transformed\loader-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.activity:activity:1.0.0] C:\Users\keyha\.gradle\caches\transforms-4\d815094445c10379f19f1eb1863a444c\transformed\jetified-activity-1.0.0\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.activity:activity:1.0.0] C:\Users\keyha\.gradle\caches\transforms-4\d815094445c10379f19f1eb1863a444c\transformed\jetified-activity-1.0.0\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.customview:customview:1.0.0] C:\Users\keyha\.gradle\caches\transforms-4\15849d48bd57b74c903361bc7c4f72fe\transformed\customview-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.customview:customview:1.0.0] C:\Users\keyha\.gradle\caches\transforms-4\15849d48bd57b74c903361bc7c4f72fe\transformed\customview-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.core:core:1.6.0] C:\Users\keyha\.gradle\caches\transforms-4\8314444ab24fdf563c4494a71e4bc859\transformed\core-1.6.0\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.core:core:1.6.0] C:\Users\keyha\.gradle\caches\transforms-4\8314444ab24fdf563c4494a71e4bc859\transformed\core-1.6.0\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.lifecycle:lifecycle-runtime:2.2.0] C:\Users\keyha\.gradle\caches\transforms-4\50c4f87644e4b82e92e2a5921e7cd5fb\transformed\lifecycle-runtime-2.2.0\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.lifecycle:lifecycle-runtime:2.2.0] C:\Users\keyha\.gradle\caches\transforms-4\50c4f87644e4b82e92e2a5921e7cd5fb\transformed\lifecycle-runtime-2.2.0\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.savedstate:savedstate:1.0.0] C:\Users\keyha\.gradle\caches\transforms-4\d05fb96dc07e8b08cf2bfcb06fbc1dd0\transformed\jetified-savedstate-1.0.0\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.savedstate:savedstate:1.0.0] C:\Users\keyha\.gradle\caches\transforms-4\d05fb96dc07e8b08cf2bfcb06fbc1dd0\transformed\jetified-savedstate-1.0.0\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.lifecycle:lifecycle-livedata:2.0.0] C:\Users\keyha\.gradle\caches\transforms-4\8b16f1de8bca1111c78d137c07bc8ee5\transformed\lifecycle-livedata-2.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.lifecycle:lifecycle-livedata:2.0.0] C:\Users\keyha\.gradle\caches\transforms-4\8b16f1de8bca1111c78d137c07bc8ee5\transformed\lifecycle-livedata-2.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.lifecycle:lifecycle-livedata-core:2.0.0] C:\Users\keyha\.gradle\caches\transforms-4\ecf027f156f048a3ebd84259b6fcdb2d\transformed\lifecycle-livedata-core-2.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.lifecycle:lifecycle-livedata-core:2.0.0] C:\Users\keyha\.gradle\caches\transforms-4\ecf027f156f048a3ebd84259b6fcdb2d\transformed\lifecycle-livedata-core-2.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.tracing:tracing:1.0.0] C:\Users\keyha\.gradle\caches\transforms-4\2df27fe13582e3362bc03b1cf3b51784\transformed\jetified-tracing-1.0.0\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.tracing:tracing:1.0.0] C:\Users\keyha\.gradle\caches\transforms-4\2df27fe13582e3362bc03b1cf3b51784\transformed\jetified-tracing-1.0.0\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.arch.core:core-runtime:2.0.0] C:\Users\keyha\.gradle\caches\transforms-4\74641be187ba8934b7512cb665d928b1\transformed\core-runtime-2.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.arch.core:core-runtime:2.0.0] C:\Users\keyha\.gradle\caches\transforms-4\74641be187ba8934b7512cb665d928b1\transformed\core-runtime-2.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.versionedparcelable:versionedparcelable:1.1.1] C:\Users\keyha\.gradle\caches\transforms-4\fbdf8ef6e8254d029ec082bffd1d191f\transformed\versionedparcelable-1.1.1\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.versionedparcelable:versionedparcelable:1.1.1] C:\Users\keyha\.gradle\caches\transforms-4\fbdf8ef6e8254d029ec082bffd1d191f\transformed\versionedparcelable-1.1.1\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.lifecycle:lifecycle-viewmodel:2.1.0] C:\Users\keyha\.gradle\caches\transforms-4\d785e271d1359d77e95773613d863999\transformed\lifecycle-viewmodel-2.1.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.lifecycle:lifecycle-viewmodel:2.1.0] C:\Users\keyha\.gradle\caches\transforms-4\d785e271d1359d77e95773613d863999\transformed\lifecycle-viewmodel-2.1.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.annotation:annotation-experimental:1.1.0] C:\Users\keyha\.gradle\caches\transforms-4\ee79a556be603a692219c16ea84512a4\transformed\jetified-annotation-experimental-1.1.0\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.annotation:annotation-experimental:1.1.0] C:\Users\keyha\.gradle\caches\transforms-4\ee79a556be603a692219c16ea84512a4\transformed\jetified-annotation-experimental-1.1.0\AndroidManifest.xml:20:5-22:41
+INJECTED from C:\dev\Code\Vibe_coding\flutter_login_app\android\app\src\debug\AndroidManifest.xml
+INJECTED from C:\dev\Code\Vibe_coding\flutter_login_app\android\app\src\debug\AndroidManifest.xml
+	android:targetSdkVersion
+		INJECTED from C:\dev\Code\Vibe_coding\flutter_login_app\android\app\src\main\AndroidManifest.xml
+		INJECTED from C:\dev\Code\Vibe_coding\flutter_login_app\android\app\src\debug\AndroidManifest.xml
+	android:minSdkVersion
+		INJECTED from C:\dev\Code\Vibe_coding\flutter_login_app\android\app\src\main\AndroidManifest.xml
+		INJECTED from C:\dev\Code\Vibe_coding\flutter_login_app\android\app\src\debug\AndroidManifest.xml
+uses-permission#android.permission.INTERNET
+ADDED from C:\dev\Code\Vibe_coding\flutter_login_app\android\app\src\debug\AndroidManifest.xml:6:5-66
+	android:name
+		ADDED from C:\dev\Code\Vibe_coding\flutter_login_app\android\app\src\debug\AndroidManifest.xml:6:22-64
+uses-library#androidx.window.extensions
+ADDED from [androidx.window:window:1.0.0-beta04] C:\Users\keyha\.gradle\caches\transforms-4\a964b1d3a98c94510876c23829622bfd\transformed\jetified-window-1.0.0-beta04\AndroidManifest.xml:25:9-27:40
+	android:required
+		ADDED from [androidx.window:window:1.0.0-beta04] C:\Users\keyha\.gradle\caches\transforms-4\a964b1d3a98c94510876c23829622bfd\transformed\jetified-window-1.0.0-beta04\AndroidManifest.xml:27:13-37
+	android:name
+		ADDED from [androidx.window:window:1.0.0-beta04] C:\Users\keyha\.gradle\caches\transforms-4\a964b1d3a98c94510876c23829622bfd\transformed\jetified-window-1.0.0-beta04\AndroidManifest.xml:26:13-54
+uses-library#androidx.window.sidecar
+ADDED from [androidx.window:window:1.0.0-beta04] C:\Users\keyha\.gradle\caches\transforms-4\a964b1d3a98c94510876c23829622bfd\transformed\jetified-window-1.0.0-beta04\AndroidManifest.xml:28:9-30:40
+	android:required
+		ADDED from [androidx.window:window:1.0.0-beta04] C:\Users\keyha\.gradle\caches\transforms-4\a964b1d3a98c94510876c23829622bfd\transformed\jetified-window-1.0.0-beta04\AndroidManifest.xml:30:13-37
+	android:name
+		ADDED from [androidx.window:window:1.0.0-beta04] C:\Users\keyha\.gradle\caches\transforms-4\a964b1d3a98c94510876c23829622bfd\transformed\jetified-window-1.0.0-beta04\AndroidManifest.xml:29:13-51

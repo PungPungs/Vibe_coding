@@ -1,0 +1,1 @@
+ C:\\dev\\Code\\Vibe_coding\\flutter_login_app\\.dart_tool\\flutter_build\\493c15d9d530a13ed4ce69f52aec5f4c\\native_assets.yaml: 

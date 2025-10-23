@@ -1,0 +1,12 @@
+com.example.flutter_login_app-jetified-window-java-1.0.0-beta04-0 C:\Users\keyha\.gradle\caches\transforms-4\6c7a8f56c6c41b565c355e1de3f0ca6e\transformed\jetified-window-java-1.0.0-beta04\res
+com.example.flutter_login_app-core-1.6.0-1 C:\Users\keyha\.gradle\caches\transforms-4\8314444ab24fdf563c4494a71e4bc859\transformed\core-1.6.0\res
+com.example.flutter_login_app-jetified-window-1.0.0-beta04-2 C:\Users\keyha\.gradle\caches\transforms-4\a964b1d3a98c94510876c23829622bfd\transformed\jetified-window-1.0.0-beta04\res
+com.example.flutter_login_app-jetified-annotation-experimental-1.1.0-3 C:\Users\keyha\.gradle\caches\transforms-4\ee79a556be603a692219c16ea84512a4\transformed\jetified-annotation-experimental-1.1.0\res
+com.example.flutter_login_app-debug-4 C:\dev\Code\Vibe_coding\flutter_login_app\android\app\src\debug\res
+com.example.flutter_login_app-main-5 C:\dev\Code\Vibe_coding\flutter_login_app\android\app\src\main\res
+com.example.flutter_login_app-pngs-6 C:\dev\Code\Vibe_coding\flutter_login_app\build\app\generated\res\pngs\debug
+com.example.flutter_login_app-resValues-7 C:\dev\Code\Vibe_coding\flutter_login_app\build\app\generated\res\resValues\debug
+com.example.flutter_login_app-rs-8 C:\dev\Code\Vibe_coding\flutter_login_app\build\app\generated\res\rs\debug
+com.example.flutter_login_app-mergeDebugResources-9 C:\dev\Code\Vibe_coding\flutter_login_app\build\app\intermediates\incremental\debug\mergeDebugResources\merged.dir
+com.example.flutter_login_app-mergeDebugResources-10 C:\dev\Code\Vibe_coding\flutter_login_app\build\app\intermediates\incremental\debug\mergeDebugResources\stripped.dir
+com.example.flutter_login_app-merged_res-11 C:\dev\Code\Vibe_coding\flutter_login_app\build\app\intermediates\merged_res\debug
