@@ -6,8 +6,8 @@ pub struct GlRenderer {
     vao: glow::VertexArray,
     vbo: glow::Buffer,
     texture: glow::Texture,
-    texture_width: i32,
-    texture_height: i32,
+    pub texture_width: i32,
+    pub texture_height: i32,
 }
 
 impl GlRenderer {
