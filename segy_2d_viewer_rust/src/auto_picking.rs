@@ -3,7 +3,7 @@ use rayon::prelude::*;
 
 pub struct AutoPicker;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Algorithm {
     StaLta,
     EnergyRatio,
