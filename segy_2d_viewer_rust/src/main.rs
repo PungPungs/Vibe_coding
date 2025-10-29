@@ -10,7 +10,7 @@ use gl_renderer::GlRenderer;
 use glow::HasContext;
 use picking_manager::PickingManager;
 use segy_reader::SegyReader;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 fn main() -> Result<(), eframe::Error> {
     let options = eframe::NativeOptions {
@@ -32,7 +32,7 @@ fn main() -> Result<(), eframe::Error> {
 struct SegyViewerApp {
     segy_reader: SegyReader,
     picking_manager: PickingManager,
-    gl_renderer: Option<GlRenderer>,
+    gl_renderer: Option<Arc<Mutex<GlRenderer>>>,
 
     // UI state
     filename: String,
@@ -55,11 +55,18 @@ struct SegyViewerApp {
 }
 
 impl SegyViewerApp {
-    fn new(_cc: &eframe::CreationContext<'_>) -> Self {
+    fn new(cc: &eframe::CreationContext<'_>) -> Self {
+        // Initialize OpenGL renderer
+        let gl_renderer = cc.gl.as_ref().map(|gl| {
+            Arc::new(Mutex::new(unsafe {
+                GlRenderer::new(gl.clone())
+            }))
+        });
+
         Self {
             segy_reader: SegyReader::new(),
             picking_manager: PickingManager::new(),
-            gl_renderer: None,
+            gl_renderer,
             filename: String::from("No file loaded"),
             colormap: String::from("seismic"),
             show_picks: true,
@@ -91,7 +98,14 @@ impl SegyViewerApp {
                     self.segy_reader.num_samples
                 );
 
-                // Upload texture (will be done in render)
+                // Upload texture to GPU
+                if let Some(renderer) = &self.gl_renderer {
+                    if let Ok(mut r) = renderer.lock() {
+                        unsafe {
+                            r.upload_texture(&self.segy_reader.data, &self.colormap);
+                        }
+                    }
+                }
             }
             Err(e) => {
                 self.status_message = format!("Error: {}", e);
@@ -325,17 +339,11 @@ impl eframe::App for SegyViewerApp {
 
             // OpenGL rendering
             let has_data = !self.segy_reader.data.is_empty();
-            let data_clone = if has_data {
-                Some(self.segy_reader.data.clone())
-            } else {
-                None
-            };
-            let colormap = self.colormap.clone();
             let transform = self.get_transform_matrix();
             let picks = self.picking_manager.get_interpolated().to_vec();
             let show_picks = self.show_picks;
             let num_traces = self.segy_reader.num_traces;
-            let num_samples = self.segy_reader.num_samples;
+            let gl_renderer = self.gl_renderer.clone();
 
             let callback = egui::PaintCallback {
                 rect,
@@ -346,9 +354,17 @@ impl eframe::App for SegyViewerApp {
                         gl.clear_color(0.0, 0.0, 0.0, 1.0);
                         gl.clear(glow::COLOR_BUFFER_BIT);
 
-                        // Simple rendering placeholder
-                        // Note: Full OpenGL rendering with shaders would be implemented here
-                        // For now, we'll just clear to show the callback works
+                        // Render SEG-Y data if available
+                        if has_data {
+                            if let Some(renderer) = &gl_renderer {
+                                if let Ok(r) = renderer.lock() {
+                                    r.render(&transform);
+
+                                    // TODO: Implement picking line rendering with modern OpenGL
+                                    // (requires separate shader and VBO)
+                                }
+                            }
+                        }
                     }
                 })),
             };
