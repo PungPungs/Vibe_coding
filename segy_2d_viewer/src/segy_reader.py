@@ -140,23 +140,51 @@ class SegyReader:
             if mantissa == 0:
                 result[i] = 0.0
             else:
-                value = mantissa / 16777216.0  # 2^24
-                value *= 16.0 ** (exponent - 64)
-                if sign:
-                    value = -value
-                result[i] = value
+                try:
+                    # mantissa를 [0.0625, 1.0) 범위로 정규화
+                    value = mantissa / 16777216.0  # 2^24
+
+                    # 지수 계산 (overflow 방지)
+                    exp_val = exponent - 64
+                    if exp_val > 60:  # 너무 큰 값
+                        result[i] = 0.0
+                        continue
+                    elif exp_val < -60:  # 너무 작은 값
+                        result[i] = 0.0
+                        continue
+
+                    # 16^exp_val 계산
+                    value *= (16.0 ** exp_val)
+
+                    # 부호 적용
+                    if sign:
+                        value = -value
+
+                    # inf/nan 체크
+                    if np.isfinite(value):
+                        result[i] = np.float32(value)
+                    else:
+                        result[i] = 0.0
+
+                except (OverflowError, ValueError):
+                    result[i] = 0.0
 
         return result
 
     def _normalize_data(self):
         """데이터를 정규화합니다 (각 트레이스별로)"""
         if self.data is not None:
+            # NaN/Inf 제거
+            self.data = np.nan_to_num(self.data, nan=0.0, posinf=0.0, neginf=0.0)
+
             # 각 트레이스별로 정규화 (열 방향)
             for i in range(self.num_traces):
                 trace = self.data[:, i]
                 max_abs = np.max(np.abs(trace))
-                if max_abs > 0:
+                if max_abs > 0 and np.isfinite(max_abs):
                     self.data[:, i] = trace / max_abs
+                else:
+                    self.data[:, i] = 0.0
 
     def get_data(self) -> Optional[np.ndarray]:
         """
@@ -267,10 +295,30 @@ def _load_trace_worker(filename: str, trace_idx: int, num_samples: int,
             if mantissa == 0:
                 trace_data[i] = 0.0
             else:
-                value = mantissa / 16777216.0  # 2^24
-                value *= 16.0 ** (exponent - 64)
-                if sign:
-                    value = -value
-                trace_data[i] = value
+                try:
+                    value = mantissa / 16777216.0  # 2^24
+
+                    # 지수 계산 (overflow 방지)
+                    exp_val = exponent - 64
+                    if exp_val > 60:  # 너무 큰 값
+                        trace_data[i] = 0.0
+                        continue
+                    elif exp_val < -60:  # 너무 작은 값
+                        trace_data[i] = 0.0
+                        continue
+
+                    value *= (16.0 ** exp_val)
+
+                    if sign:
+                        value = -value
+
+                    # inf/nan 체크
+                    if np.isfinite(value):
+                        trace_data[i] = np.float32(value)
+                    else:
+                        trace_data[i] = 0.0
+
+                except (OverflowError, ValueError):
+                    trace_data[i] = 0.0
 
         return trace_data

@@ -33,25 +33,27 @@ class MainWindow(QMainWindow):
     def init_ui(self):
         """UI 초기화"""
         self.setWindowTitle('SEG-Y 2D Viewer with First Break Picking')
-        self.setGeometry(100, 100, 1200, 800)
+        self.setGeometry(50, 50, 1600, 900)  # 더 큰 윈도우
 
         # 중앙 위젯
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
 
-        # 메인 레이아웃
-        main_layout = QVBoxLayout()
+        # 메인 레이아웃 (가로)
+        main_layout = QHBoxLayout()
         central_widget.setLayout(main_layout)
 
-        # OpenGL 뷰어 위젯
+        # OpenGL 뷰어 위젯 (왼쪽, 넓게)
         self.gl_widget = SegyGLWidget()
         self.gl_widget.set_picking_manager(self.picking_manager)
         self.gl_widget.mouse_position_changed.connect(self.on_mouse_position_changed)
-        main_layout.addWidget(self.gl_widget)
+        self.gl_widget.setMinimumWidth(1000)  # 최소 너비 설정
+        main_layout.addWidget(self.gl_widget, stretch=4)  # 4:1 비율
 
-        # 컨트롤 패널
+        # 컨트롤 패널 (오른쪽)
         control_panel = self.create_control_panel()
-        main_layout.addWidget(control_panel)
+        control_panel.setMaximumWidth(300)  # 최대 너비 제한
+        main_layout.addWidget(control_panel, stretch=1)
 
         # 툴바 생성
         self.create_toolbar()
@@ -108,19 +110,37 @@ class MainWindow(QMainWindow):
         toolbar.addAction(auto_pick_action)
 
     def create_control_panel(self) -> QWidget:
-        """컨트롤 패널 생성"""
+        """컨트롤 패널 생성 (오른쪽 세로)"""
         panel = QWidget()
-        layout = QHBoxLayout()
+        layout = QVBoxLayout()
         panel.setLayout(layout)
 
-        # 파일 정보
+        # 타이틀
+        title_label = QLabel('Control Panel')
+        title_label.setStyleSheet('font-weight: bold; font-size: 14px; padding: 5px;')
+        layout.addWidget(title_label)
+
+        layout.addSpacing(10)
+
+        # 파일 정보 그룹
+        file_group_label = QLabel('File Information')
+        file_group_label.setStyleSheet('font-weight: bold; padding: 5px;')
+        layout.addWidget(file_group_label)
+
         self.file_info_label = QLabel('No file loaded')
+        self.file_info_label.setWordWrap(True)
+        self.file_info_label.setStyleSheet('padding: 5px; background-color: #f0f0f0; border-radius: 3px;')
         layout.addWidget(self.file_info_label)
 
-        layout.addStretch()
+        layout.addSpacing(15)
+
+        # 피킹 옵션 그룹
+        picking_group_label = QLabel('Picking Options')
+        picking_group_label.setStyleSheet('font-weight: bold; padding: 5px;')
+        layout.addWidget(picking_group_label)
 
         # 피킹 활성화 체크박스
-        self.picking_enabled_checkbox = QCheckBox('Enable Picking')
+        self.picking_enabled_checkbox = QCheckBox('Enable Manual Picking')
         self.picking_enabled_checkbox.setChecked(True)
         self.picking_enabled_checkbox.stateChanged.connect(self.on_picking_enabled_changed)
         layout.addWidget(self.picking_enabled_checkbox)
@@ -131,18 +151,51 @@ class MainWindow(QMainWindow):
         self.show_picks_checkbox.stateChanged.connect(self.on_show_picks_changed)
         layout.addWidget(self.show_picks_checkbox)
 
+        layout.addSpacing(15)
+
+        # 디스플레이 옵션 그룹
+        display_group_label = QLabel('Display Options')
+        display_group_label.setStyleSheet('font-weight: bold; padding: 5px;')
+        layout.addWidget(display_group_label)
+
         # 컬러맵 선택
-        layout.addWidget(QLabel('Colormap:'))
+        colormap_label = QLabel('Colormap:')
+        layout.addWidget(colormap_label)
         self.colormap_combo = QComboBox()
         self.colormap_combo.addItems(['seismic', 'grayscale'])
         self.colormap_combo.currentTextChanged.connect(self.on_colormap_changed)
         layout.addWidget(self.colormap_combo)
 
+        layout.addSpacing(15)
+
+        # 자동 피킹 그룹
+        auto_pick_group_label = QLabel('Auto Picking')
+        auto_pick_group_label.setStyleSheet('font-weight: bold; padding: 5px;')
+        layout.addWidget(auto_pick_group_label)
+
         # 자동 피킹 알고리즘 선택
-        layout.addWidget(QLabel('Auto Pick:'))
+        auto_pick_label = QLabel('Algorithm:')
+        layout.addWidget(auto_pick_label)
         self.auto_pick_algo_combo = QComboBox()
         self.auto_pick_algo_combo.addItems(['STA/LTA', 'Energy Ratio', 'AIC'])
         layout.addWidget(self.auto_pick_algo_combo)
+
+        # 자동 피킹 버튼
+        auto_pick_btn = QPushButton('Run Auto Pick')
+        auto_pick_btn.clicked.connect(self.auto_pick)
+        auto_pick_btn.setStyleSheet('padding: 8px; background-color: #4CAF50; color: white; font-weight: bold;')
+        layout.addWidget(auto_pick_btn)
+
+        layout.addStretch()
+
+        # 도움말
+        help_label = QLabel('Controls:\n\n'
+                           '• Left Click: Pick\n'
+                           '• Mouse Wheel: Zoom\n'
+                           '• Right/Middle Drag: Pan')
+        help_label.setStyleSheet('padding: 10px; background-color: #f9f9f9; border-radius: 3px; font-size: 10px;')
+        help_label.setWordWrap(True)
+        layout.addWidget(help_label)
 
         return panel
 
