@@ -339,16 +339,15 @@ impl eframe::App for SegyViewerApp {
             let callback = egui::PaintCallback {
                 rect,
                 callback: Arc::new(egui_glow::CallbackFn::new(move |_info, painter| {
-                    if let Some(gl) = painter.gl() {
-                        unsafe {
-                            // Clear
-                            gl.clear_color(0.0, 0.0, 0.0, 1.0);
-                            gl.clear(glow::COLOR_BUFFER_BIT);
+                    let gl = painter.gl();
+                    unsafe {
+                        // Clear
+                        gl.clear_color(0.0, 0.0, 0.0, 1.0);
+                        gl.clear(glow::COLOR_BUFFER_BIT);
 
-                            // Simple rendering placeholder
-                            // Note: Full OpenGL rendering with shaders would be implemented here
-                            // For now, we'll just clear to show the callback works
-                        }
+                        // Simple rendering placeholder
+                        // Note: Full OpenGL rendering with shaders would be implemented here
+                        // For now, we'll just clear to show the callback works
                     }
                 })),
             };
