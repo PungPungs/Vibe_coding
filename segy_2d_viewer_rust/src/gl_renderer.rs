@@ -2,7 +2,6 @@
 use glow::HasContext;
 
 pub struct GlRenderer {
-    gl: glow::Context,
     program: glow::Program,
     vao: glow::VertexArray,
     vbo: glow::Buffer,
@@ -12,7 +11,7 @@ pub struct GlRenderer {
 }
 
 impl GlRenderer {
-    pub unsafe fn new(gl: glow::Context) -> Self {
+    pub unsafe fn new(gl: &glow::Context) -> Self {
         // Create shader program
         let vertex_shader_source = r#"
             #version 330 core
@@ -36,7 +35,7 @@ impl GlRenderer {
             }
         "#;
 
-        let program = Self::create_program(&gl, vertex_shader_source, fragment_shader_source);
+        let program = Self::create_program(gl, vertex_shader_source, fragment_shader_source);
 
         // Create quad vertices
         #[rustfmt::skip]
@@ -70,7 +69,6 @@ impl GlRenderer {
         let texture = gl.create_texture().unwrap();
 
         Self {
-            gl,
             program,
             vao,
             vbo,
@@ -114,7 +112,7 @@ impl GlRenderer {
         program
     }
 
-    pub unsafe fn upload_texture(&mut self, data: &[Vec<f32>], colormap: &str) {
+    pub unsafe fn upload_texture(&mut self, gl: &glow::Context, data: &[Vec<f32>], colormap: &str) {
         if data.is_empty() || data[0].is_empty() {
             return;
         }
@@ -140,19 +138,19 @@ impl GlRenderer {
         self.texture_width = width as i32;
         self.texture_height = height as i32;
 
-        self.gl.bind_texture(glow::TEXTURE_2D, Some(self.texture));
-        self.gl.tex_parameter_i32(
+        gl.bind_texture(glow::TEXTURE_2D, Some(self.texture));
+        gl.tex_parameter_i32(
             glow::TEXTURE_2D,
             glow::TEXTURE_MIN_FILTER,
             glow::LINEAR as i32,
         );
-        self.gl.tex_parameter_i32(
+        gl.tex_parameter_i32(
             glow::TEXTURE_2D,
             glow::TEXTURE_MAG_FILTER,
             glow::LINEAR as i32,
         );
 
-        self.gl.tex_image_2d(
+        gl.tex_image_2d(
             glow::TEXTURE_2D,
             0,
             glow::RGB as i32,
@@ -199,30 +197,28 @@ impl GlRenderer {
         }
     }
 
-    pub unsafe fn render(&self, transform: &[f32; 16]) {
-        self.gl.use_program(Some(self.program));
+    pub unsafe fn render(&self, gl: &glow::Context, transform: &[f32; 16]) {
+        gl.use_program(Some(self.program));
 
         // Set transform uniform
-        let transform_loc = self
-            .gl
-            .get_uniform_location(self.program, "transform")
-            .unwrap();
-        self.gl
-            .uniform_matrix_4_f32_slice(Some(&transform_loc), false, transform);
+        let transform_loc = gl.get_uniform_location(self.program, "transform").unwrap();
+        gl.uniform_matrix_4_f32_slice(Some(&transform_loc), false, transform);
 
         // Bind texture
-        self.gl.active_texture(glow::TEXTURE0);
-        self.gl.bind_texture(glow::TEXTURE_2D, Some(self.texture));
+        gl.active_texture(glow::TEXTURE0);
+        gl.bind_texture(glow::TEXTURE_2D, Some(self.texture));
 
         // Draw quad
-        self.gl.bind_vertex_array(Some(self.vao));
-        self.gl.draw_arrays(glow::TRIANGLE_FAN, 0, 4);
+        gl.bind_buffer(glow::ARRAY_BUFFER, Some(self.vbo));
+        gl.bind_vertex_array(Some(self.vao));
+        gl.draw_arrays(glow::TRIANGLE_FAN, 0, 4);
     }
 
-    pub unsafe fn cleanup(&self) {
-        self.gl.delete_program(self.program);
-        self.gl.delete_vertex_array(self.vao);
-        self.gl.delete_buffer(self.vbo);
-        self.gl.delete_texture(self.texture);
+    #[allow(dead_code)]
+    pub unsafe fn cleanup(&self, gl: &glow::Context) {
+        gl.delete_program(self.program);
+        gl.delete_vertex_array(self.vao);
+        gl.delete_buffer(self.vbo);
+        gl.delete_texture(self.texture);
     }
 }

@@ -7,12 +7,21 @@ mod segy_reader;
 use auto_picking::{Algorithm, AutoPicker};
 use eframe::egui;
 use gl_renderer::GlRenderer;
-use glow::HasContext;
 use picking_manager::PickingManager;
 use segy_reader::SegyReader;
-use std::sync::Arc;
+use std::env;
+use std::sync::{Arc, Mutex};
 
 fn main() -> Result<(), eframe::Error> {
+    if !has_display_server() {
+        eprintln!(
+            "No graphical display server detected (DISPLAY, WAYLAND_DISPLAY, and WAYLAND_SOCKET are unset).\n\
+             The SEG-Y viewer requires an X11 or Wayland session to show the UI.\n\
+             Skipping UI launch."
+        );
+        return Ok(());
+    }
+
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([1600.0, 900.0])
@@ -29,25 +38,27 @@ fn main() -> Result<(), eframe::Error> {
     )
 }
 
+fn has_display_server() -> bool {
+    env::var_os("DISPLAY").is_some()
+        || env::var_os("WAYLAND_DISPLAY").is_some()
+        || env::var_os("WAYLAND_SOCKET").is_some()
+}
+
 struct SegyViewerApp {
     segy_reader: SegyReader,
     picking_manager: PickingManager,
-    gl_renderer: Option<GlRenderer>,
+    gl_renderer: Arc<Mutex<Option<GlRenderer>>>,
 
     // UI state
     filename: String,
     colormap: String,
     show_picks: bool,
-    picking_enabled: bool,
     algorithm: Algorithm,
 
     // View state
     zoom: f32,
     offset_x: f32,
     offset_y: f32,
-    last_mouse_pos: Option<egui::Pos2>,
-    is_panning: bool,
-
     // Info
     status_message: String,
     mouse_trace: i32,
@@ -59,17 +70,14 @@ impl SegyViewerApp {
         Self {
             segy_reader: SegyReader::new(),
             picking_manager: PickingManager::new(),
-            gl_renderer: None,
+            gl_renderer: Arc::new(Mutex::new(None)),
             filename: String::from("No file loaded"),
             colormap: String::from("seismic"),
             show_picks: true,
-            picking_enabled: true,
             algorithm: Algorithm::StaLta,
             zoom: 1.0,
             offset_x: 0.0,
             offset_y: 0.0,
-            last_mouse_pos: None,
-            is_panning: false,
             status_message: String::from("Ready"),
             mouse_trace: -1,
             mouse_sample: -1.0,
@@ -82,14 +90,29 @@ impl SegyViewerApp {
         match self.segy_reader.load_file(&path) {
             Ok(_) => {
                 self.filename = path.clone();
-                self.picking_manager.set_num_traces(self.segy_reader.num_traces);
+                self.picking_manager
+                    .set_num_traces(self.segy_reader.num_traces);
                 self.picking_manager.clear_picks();
 
                 self.status_message = format!(
                     "Loaded: {} traces, {} samples",
-                    self.segy_reader.num_traces,
-                    self.segy_reader.num_samples
+                    self.segy_reader.num_traces, self.segy_reader.num_samples
                 );
+
+                if let Some(trace) = self.segy_reader.get_trace(0) {
+                    if !trace.is_empty() {
+                        let (min_amp, max_amp) = trace
+                            .iter()
+                            .fold((f32::MAX, f32::MIN), |(min_val, max_val), &value| {
+                                (min_val.min(value), max_val.max(value))
+                            });
+
+                        self.status_message.push_str(&format!(
+                            " | First trace range: [{:.3}, {:.3}]",
+                            min_amp, max_amp
+                        ));
+                    }
+                }
 
                 // Upload texture (will be done in render)
             }
@@ -119,7 +142,11 @@ impl SegyViewerApp {
         self.status_message = format!("Auto picking completed: {} picks", picks.len());
     }
 
-    fn screen_to_data_coords(&self, screen_pos: egui::Pos2, rect: egui::Rect) -> Option<(usize, f32)> {
+    fn screen_to_data_coords(
+        &self,
+        screen_pos: egui::Pos2,
+        rect: egui::Rect,
+    ) -> Option<(usize, f32)> {
         let width = rect.width();
         let height = rect.height();
 
@@ -163,7 +190,7 @@ impl SegyViewerApp {
 }
 
 impl eframe::App for SegyViewerApp {
-    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         // Top panel - toolbar
         egui::TopBottomPanel::top("toolbar").show(ctx, |ui| {
             ui.horizontal(|ui| {
@@ -191,7 +218,10 @@ impl eframe::App for SegyViewerApp {
                         .add_filter("CSV", &["csv"])
                         .save_file()
                     {
-                        if let Err(e) = self.picking_manager.save_to_file(&path.display().to_string()) {
+                        if let Err(e) = self
+                            .picking_manager
+                            .save_to_file(&path.display().to_string())
+                        {
                             self.status_message = format!("Error saving: {}", e);
                         } else {
                             self.status_message = String::from("Picks saved");
@@ -204,7 +234,10 @@ impl eframe::App for SegyViewerApp {
                         .add_filter("CSV", &["csv"])
                         .pick_file()
                     {
-                        if let Err(e) = self.picking_manager.load_from_file(&path.display().to_string()) {
+                        if let Err(e) = self
+                            .picking_manager
+                            .load_from_file(&path.display().to_string())
+                        {
                             self.status_message = format!("Error loading: {}", e);
                         } else {
                             self.status_message = String::from("Picks loaded");
@@ -230,7 +263,10 @@ impl eframe::App for SegyViewerApp {
             ui.horizontal(|ui| {
                 ui.label(&self.status_message);
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    ui.label(format!("Trace: {}, Sample: {:.1}", self.mouse_trace, self.mouse_sample));
+                    ui.label(format!(
+                        "Trace: {}, Sample: {:.1}",
+                        self.mouse_trace, self.mouse_sample
+                    ));
                 });
             });
         });
@@ -248,9 +284,10 @@ impl eframe::App for SegyViewerApp {
 
                 ui.separator();
                 ui.label("🎯 Picking Options");
-                ui.checkbox(&mut self.picking_enabled, "Enable Manual Picking");
+                let mut picking_enabled = self.picking_manager.is_enabled();
+                ui.checkbox(&mut picking_enabled, "Enable Manual Picking");
+                self.picking_manager.set_enabled(picking_enabled);
                 ui.checkbox(&mut self.show_picks, "Show Picks");
-                self.picking_manager.set_enabled(self.picking_enabled);
                 ui.add_space(10.0);
 
                 ui.separator();
@@ -259,7 +296,11 @@ impl eframe::App for SegyViewerApp {
                     .selected_text(&self.colormap)
                     .show_ui(ui, |ui| {
                         ui.selectable_value(&mut self.colormap, "seismic".to_string(), "Seismic");
-                        ui.selectable_value(&mut self.colormap, "grayscale".to_string(), "Grayscale");
+                        ui.selectable_value(
+                            &mut self.colormap,
+                            "grayscale".to_string(),
+                            "Grayscale",
+                        );
                     });
                 ui.add_space(10.0);
 
@@ -269,7 +310,11 @@ impl eframe::App for SegyViewerApp {
                     .selected_text(format!("{:?}", self.algorithm))
                     .show_ui(ui, |ui| {
                         ui.selectable_value(&mut self.algorithm, Algorithm::StaLta, "STA/LTA");
-                        ui.selectable_value(&mut self.algorithm, Algorithm::EnergyRatio, "Energy Ratio");
+                        ui.selectable_value(
+                            &mut self.algorithm,
+                            Algorithm::EnergyRatio,
+                            "Energy Ratio",
+                        );
                         ui.selectable_value(&mut self.algorithm, Algorithm::Aic, "AIC");
                     });
 
@@ -287,13 +332,11 @@ impl eframe::App for SegyViewerApp {
 
         // Central panel - OpenGL viewer
         egui::CentralPanel::default().show(ctx, |ui| {
-            let (rect, response) = ui.allocate_exact_size(
-                ui.available_size(),
-                egui::Sense::click_and_drag(),
-            );
+            let (rect, response) =
+                ui.allocate_exact_size(ui.available_size(), egui::Sense::click_and_drag());
 
             // Handle mouse events
-            if response.clicked() && self.picking_enabled {
+            if response.clicked() && self.picking_manager.is_enabled() {
                 if let Some(pos) = response.interact_pointer_pos() {
                     if let Some((trace_idx, sample_idx)) = self.screen_to_data_coords(pos, rect) {
                         self.picking_manager.add_pick(trace_idx, sample_idx);
@@ -324,36 +367,61 @@ impl eframe::App for SegyViewerApp {
             }
 
             // OpenGL rendering
-            let has_data = !self.segy_reader.data.is_empty();
-            let data_clone = if has_data {
-                Some(self.segy_reader.data.clone())
-            } else {
-                None
-            };
+            let data_clone =
+                (!self.segy_reader.data.is_empty()).then(|| self.segy_reader.data.clone());
             let colormap = self.colormap.clone();
             let transform = self.get_transform_matrix();
             let picks = self.picking_manager.get_interpolated().to_vec();
             let show_picks = self.show_picks;
             let num_traces = self.segy_reader.num_traces;
             let num_samples = self.segy_reader.num_samples;
+            let gl_renderer = Arc::clone(&self.gl_renderer);
 
             let callback = egui::PaintCallback {
                 rect,
                 callback: Arc::new(egui_glow::CallbackFn::new(move |_info, painter| {
-                    let gl = painter.gl();
-                    unsafe {
-                        // Clear
-                        gl.clear_color(0.0, 0.0, 0.0, 1.0);
-                        gl.clear(glow::COLOR_BUFFER_BIT);
+                    let gl_arc = painter.gl();
+                    let gl = gl_arc.as_ref();
+                    let mut renderer_guard =
+                        gl_renderer.lock().expect("GL renderer mutex poisoned");
 
-                        // Simple rendering placeholder
-                        // Note: Full OpenGL rendering with shaders would be implemented here
-                        // For now, we'll just clear to show the callback works
+                    if renderer_guard.is_none() {
+                        *renderer_guard = Some(unsafe { GlRenderer::new(gl) });
+                    }
+
+                    if let Some(renderer) = renderer_guard.as_mut() {
+                        unsafe {
+                            if let Some(data) = &data_clone {
+                                renderer.upload_texture(gl, data, &colormap);
+                            }
+                            renderer.render(gl, &transform);
+                        }
                     }
                 })),
             };
 
             ui.painter().add(callback);
+
+            if show_picks && num_traces > 0 && num_samples > 0 {
+                let traces_max = (num_traces.saturating_sub(1)).max(1) as f32;
+                let samples_max = (num_samples.saturating_sub(1)).max(1) as f32;
+                let painter = ui.painter();
+
+                for (trace_idx, sample_idx) in picks.iter().enumerate() {
+                    if *sample_idx < 0.0 {
+                        continue;
+                    }
+
+                    let norm_x = trace_idx as f32 / traces_max;
+                    let norm_y = sample_idx / samples_max;
+                    let pos = egui::pos2(
+                        rect.left() + norm_x * rect.width(),
+                        rect.top() + (1.0 - norm_y) * rect.height(),
+                    );
+
+                    painter.circle_filled(pos, 4.0, egui::Color32::LIGHT_GREEN);
+                }
+            }
         });
 
         ctx.request_repaint();

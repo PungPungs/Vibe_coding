@@ -7,8 +7,8 @@ use std::fs::File;
 use std::path::Path;
 
 pub struct SegyReader {
-    pub data: Vec<Vec<f32>>,           // [samples][traces]
-    pub raw_data: Vec<Vec<f32>>,       // raw data before normalization
+    pub data: Vec<Vec<f32>>,     // [samples][traces]
+    pub raw_data: Vec<Vec<f32>>, // raw data before normalization
     pub num_traces: usize,
     pub num_samples: usize,
     pub sample_rate: f32,
@@ -150,11 +150,8 @@ impl SegyReader {
             if max_abs > 0.0 {
                 for sample_idx in 0..self.num_samples {
                     let val = data[sample_idx][trace_idx];
-                    normalized[sample_idx][trace_idx] = if val.is_finite() {
-                        val / max_abs
-                    } else {
-                        0.0
-                    };
+                    normalized[sample_idx][trace_idx] =
+                        if val.is_finite() { val / max_abs } else { 0.0 };
                 }
             } else {
                 for sample_idx in 0..self.num_samples {

@@ -40,7 +40,12 @@ impl AutoPicker {
             .collect()
     }
 
-    fn pick_sta_lta(trace: &[f32], sta_window: usize, lta_window: usize, threshold: f32) -> Option<f32> {
+    fn pick_sta_lta(
+        trace: &[f32],
+        sta_window: usize,
+        lta_window: usize,
+        threshold: f32,
+    ) -> Option<f32> {
         let len = trace.len();
         if len < lta_window + sta_window {
             return None;
