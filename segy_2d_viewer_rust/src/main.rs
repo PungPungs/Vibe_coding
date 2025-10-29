@@ -15,13 +15,17 @@ use std::env;
 use std::sync::Arc;
 
 fn main() -> Result<(), eframe::Error> {
-    if !has_display_server() {
-        eprintln!(
-            "No graphical display server detected (DISPLAY, WAYLAND_DISPLAY, and WAYLAND_SOCKET are unset).\n\
-             The SEG-Y viewer requires an X11 or Wayland session to show the UI.\n\
-             Skipping UI launch."
-        );
-        return Ok(());
+    // Only check for display server on Linux/Unix
+    #[cfg(not(target_os = "windows"))]
+    {
+        if !has_display_server() {
+            eprintln!(
+                "No graphical display server detected (DISPLAY, WAYLAND_DISPLAY, and WAYLAND_SOCKET are unset).\n\
+                 The SEG-Y viewer requires an X11 or Wayland session to show the UI.\n\
+                 Skipping UI launch."
+            );
+            return Ok(());
+        }
     }
 
     let options = eframe::NativeOptions {
@@ -61,7 +65,6 @@ struct SegyViewerApp {
     status_message: String,
     mouse_trace: i32,
     mouse_sample: f32,
-    texture_uploaded: bool,
 }
 
 impl SegyViewerApp {
@@ -86,7 +89,6 @@ impl SegyViewerApp {
             status_message: String::from("Ready"),
             mouse_trace: -1,
             mouse_sample: -1.0,
-            texture_uploaded: false,
         }
     }
 
@@ -103,8 +105,6 @@ impl SegyViewerApp {
                     "Loaded: {} traces, {} samples",
                     self.segy_reader.num_traces, self.segy_reader.num_samples
                 );
-
-                self.texture_uploaded = false; // Mark for upload on next render
             }
             Err(e) => {
                 self.status_message = format!("Error: {}", e);
@@ -237,13 +237,11 @@ impl eframe::App for SegyViewerApp {
             let has_data = !self.segy_reader.data.is_empty();
             let transform = self.get_transform_matrix();
             let gl_renderer = self.gl_renderer.clone();
-            let data_clone = if has_data && !self.texture_uploaded {
-                Some(self.segy_reader.data.clone())
+            let data_clone = if has_data {
+                Some((self.segy_reader.data.clone(), self.colormap.clone()))
             } else {
                 None
             };
-            let colormap = self.colormap.clone();
-            let mut texture_uploaded = self.texture_uploaded;
 
             let callback = egui::PaintCallback {
                 rect,
@@ -254,9 +252,13 @@ impl eframe::App for SegyViewerApp {
                         gl.clear(glow::COLOR_BUFFER_BIT);
 
                         if let Some(renderer) = &gl_renderer {
-                            if let Some(data) = &data_clone {
+                            if let Some((data, colormap)) = &data_clone {
                                 if let Some(mut r) = renderer.try_lock() {
                                     r.upload_texture(gl, data, &colormap);
+                                    // Upload texture only if not already uploaded
+                                    if r.texture_width == 0 {
+                                        r.upload_texture(gl, data, colormap);
+                                    }
                                 }
                             }
 
@@ -269,10 +271,6 @@ impl eframe::App for SegyViewerApp {
                     }
                 })),
             };
-
-            if !self.texture_uploaded && texture_uploaded {
-                self.texture_uploaded = true;
-            }
 
             ui.painter().add(callback);
         });
