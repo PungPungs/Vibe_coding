@@ -255,14 +255,14 @@ impl eframe::App for SegyViewerApp {
 
                         if let Some(renderer) = &gl_renderer {
                             if let Some(data) = &data_clone {
-                                if let Ok(mut r) = renderer.try_lock() {
+                                if let Some(mut r) = renderer.try_lock() {
                                     r.upload_texture(gl, data, &colormap);
                                     texture_uploaded = true;
                                 }
                             }
 
                             if has_data {
-                                if let Ok(r) = renderer.try_lock() {
+                                if let Some(r) = renderer.try_lock() {
                                     r.render(gl, &transform);
                                 }
                             }
