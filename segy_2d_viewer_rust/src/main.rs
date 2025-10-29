@@ -50,33 +50,24 @@ struct SegyViewerApp {
     segy_reader: SegyReader,
     picking_manager: PickingManager,
     gl_renderer: Option<Arc<Mutex<GlRenderer>>>,
-
-    // UI state
     filename: String,
     colormap: String,
     show_picks: bool,
     picking_enabled: bool,
     algorithm: Algorithm,
-
-    // View state
     zoom: f32,
     offset_x: f32,
     offset_y: f32,
-    last_mouse_pos: Option<egui::Pos2>,
-    is_panning: bool,
-
-    // Info
     status_message: String,
     mouse_trace: i32,
     mouse_sample: f32,
+    texture_uploaded: bool,
 }
 
 impl SegyViewerApp {
     fn new(cc: &eframe::CreationContext<'_>) -> Self {
-        // Initialize renderer (GL context은 보관하지 않음)
         let gl_renderer = cc.gl.as_ref().map(|gl| unsafe {
-            let mut renderer = GlRenderer::new(gl);
-            // 초기 텍스처나 셰이더 세팅 가능
+            let renderer = GlRenderer::new(gl);
             Arc::new(Mutex::new(renderer))
         });
 
@@ -92,11 +83,10 @@ impl SegyViewerApp {
             zoom: 1.0,
             offset_x: 0.0,
             offset_y: 0.0,
-            last_mouse_pos: None,
-            is_panning: false,
             status_message: String::from("Ready"),
             mouse_trace: -1,
             mouse_sample: -1.0,
+            texture_uploaded: false,
         }
     }
 
@@ -111,12 +101,10 @@ impl SegyViewerApp {
 
                 self.status_message = format!(
                     "Loaded: {} traces, {} samples",
-                    self.segy_reader.num_traces,
-                    self.segy_reader.num_samples
+                    self.segy_reader.num_traces, self.segy_reader.num_samples
                 );
 
-                // GPU 업로드 대신 데이터 저장 표시만
-                // 실제 GL 업로드는 렌더링 시점에서 수행됨
+                self.texture_uploaded = false; // Mark for upload on next render
             }
             Err(e) => {
                 self.status_message = format!("Error: {}", e);
@@ -140,15 +128,10 @@ impl SegyViewerApp {
         );
 
         self.picking_manager.set_picks(picks.clone());
-
         self.status_message = format!("Auto picking completed: {} picks", picks.len());
     }
 
-    fn screen_to_data_coords(
-        &self,
-        screen_pos: egui::Pos2,
-        rect: egui::Rect,
-    ) -> Option<(usize, f32)> {
+    fn screen_to_data_coords(&self, screen_pos: egui::Pos2, rect: egui::Rect) -> Option<(usize, f32)> {
         let width = rect.width();
         let height = rect.height();
 
@@ -187,6 +170,114 @@ impl SegyViewerApp {
 
 impl eframe::App for SegyViewerApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        egui::TopBottomPanel::top("toolbar").show(ctx, |ui| {
+            ui.horizontal(|ui| {
+                if ui.button("📁 Open SEG-Y").clicked() {
+                    if let Some(path) = rfd::FileDialog::new()
+                        .add_filter("SEG-Y", &["sgy", "segy"])
+                        .pick_file()
+                    {
+                        self.open_file(path.display().to_string());
+                    }
+                }
+
+                ui.separator();
+
+                if ui.button("Reset View").clicked() {
+                    self.zoom = 1.0;
+                    self.offset_x = 0.0;
+                    self.offset_y = 0.0;
+                }
+
+                ui.separator();
+
+                if ui.button("🤖 Auto Pick").clicked() {
+                    self.auto_pick();
+                }
+
+                ui.separator();
+                ui.label(&self.status_message);
+            });
+        });
+
         egui::CentralPanel::default().show(ctx, |ui| {
             let (rect, response) = ui.allocate_exact_size(
                 ui.available_size(),
+                egui::Sense::click_and_drag(),
+            );
+
+            if response.clicked() && self.picking_enabled {
+                if let Some(pos) = response.interact_pointer_pos() {
+                    if let Some((trace_idx, sample_idx)) = self.screen_to_data_coords(pos, rect) {
+                        self.picking_manager.add_pick(trace_idx, sample_idx);
+                    }
+                }
+            }
+
+            if response.dragged_by(egui::PointerButton::Secondary) {
+                let delta = response.drag_delta();
+                self.offset_x += delta.x / rect.width() * 2.0 / self.zoom;
+                self.offset_y -= delta.y / rect.height() * 2.0 / self.zoom;
+            }
+
+            let scroll_delta = ui.input(|i| i.smooth_scroll_delta);
+            if scroll_delta.y != 0.0 {
+                let zoom_factor = if scroll_delta.y > 0.0 { 1.1 } else { 0.9 };
+                self.zoom *= zoom_factor;
+                self.zoom = self.zoom.clamp(0.1, 10.0);
+            }
+
+            if let Some(pos) = response.hover_pos() {
+                if let Some((trace_idx, sample_idx)) = self.screen_to_data_coords(pos, rect) {
+                    self.mouse_trace = trace_idx as i32;
+                    self.mouse_sample = sample_idx;
+                }
+            }
+
+            let has_data = !self.segy_reader.data.is_empty();
+            let transform = self.get_transform_matrix();
+            let gl_renderer = self.gl_renderer.clone();
+            let data_clone = if has_data && !self.texture_uploaded {
+                Some(self.segy_reader.data.clone())
+            } else {
+                None
+            };
+            let colormap = self.colormap.clone();
+            let mut texture_uploaded = self.texture_uploaded;
+
+            let callback = egui::PaintCallback {
+                rect,
+                callback: Arc::new(egui_glow::CallbackFn::new(move |_info, painter| {
+                    let gl = painter.gl();
+                    unsafe {
+                        gl.clear_color(0.0, 0.0, 0.0, 1.0);
+                        gl.clear(glow::COLOR_BUFFER_BIT);
+
+                        if let Some(renderer) = &gl_renderer {
+                            if let Some(data) = &data_clone {
+                                if let Ok(mut r) = renderer.try_lock() {
+                                    r.upload_texture(gl, data, &colormap);
+                                    texture_uploaded = true;
+                                }
+                            }
+
+                            if has_data {
+                                if let Ok(r) = renderer.try_lock() {
+                                    r.render(gl, &transform);
+                                }
+                            }
+                        }
+                    }
+                })),
+            };
+
+            if !self.texture_uploaded && texture_uploaded {
+                self.texture_uploaded = true;
+            }
+
+            ui.painter().add(callback);
+        });
+
+        ctx.request_repaint();
+    }
+}
