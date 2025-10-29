@@ -54,7 +54,7 @@ struct SegyViewerApp {
 }
 
 impl SegyViewerApp {
-    fn new(cc: &eframe::CreationContext<'_>) -> Self {
+    fn new(_cc: &eframe::CreationContext<'_>) -> Self {
         Self {
             segy_reader: SegyReader::new(),
             picking_manager: PickingManager::new(),
@@ -306,8 +306,10 @@ impl eframe::App for SegyViewerApp {
                 self.offset_y -= delta.y / rect.height() * 2.0 / self.zoom;
             }
 
-            if let Some(scroll) = ui.input(|i| i.scroll_delta.y) {
-                let zoom_factor = if scroll > 0.0 { 1.1 } else { 0.9 };
+            // Scroll for zoom
+            let scroll_delta = ui.input(|i| i.smooth_scroll_delta);
+            if scroll_delta.y != 0.0 {
+                let zoom_factor = if scroll_delta.y > 0.0 { 1.1 } else { 0.9 };
                 self.zoom *= zoom_factor;
                 self.zoom = self.zoom.clamp(0.1, 10.0);
             }
@@ -321,10 +323,33 @@ impl eframe::App for SegyViewerApp {
             }
 
             // OpenGL rendering
+            let has_data = !self.segy_reader.data.is_empty();
+            let data_clone = if has_data {
+                Some(self.segy_reader.data.clone())
+            } else {
+                None
+            };
+            let colormap = self.colormap.clone();
+            let transform = self.get_transform_matrix();
+            let picks = self.picking_manager.get_interpolated().to_vec();
+            let show_picks = self.show_picks;
+            let num_traces = self.segy_reader.num_traces;
+            let num_samples = self.segy_reader.num_samples;
+
             let callback = egui::PaintCallback {
                 rect,
                 callback: Arc::new(egui_glow::CallbackFn::new(move |_info, painter| {
-                    // This will be filled in with actual rendering
+                    if let Some(gl) = painter.gl() {
+                        unsafe {
+                            // Clear
+                            gl.clear_color(0.0, 0.0, 0.0, 1.0);
+                            gl.clear(glow::COLOR_BUFFER_BIT);
+
+                            // Simple rendering placeholder
+                            // Note: Full OpenGL rendering with shaders would be implemented here
+                            // For now, we'll just clear to show the callback works
+                        }
+                    }
                 })),
             };
 
