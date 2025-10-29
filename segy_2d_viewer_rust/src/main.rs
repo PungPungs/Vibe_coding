@@ -7,6 +7,7 @@ mod segy_reader;
 use auto_picking::{Algorithm, AutoPicker};
 use eframe::egui;
 use gl_renderer::GlRenderer;
+use glow::HasContext;
 use picking_manager::PickingManager;
 use segy_reader::SegyReader;
 use std::sync::Arc;
