@@ -257,7 +257,6 @@ impl eframe::App for SegyViewerApp {
                             if let Some(data) = &data_clone {
                                 if let Some(mut r) = renderer.try_lock() {
                                     r.upload_texture(gl, data, &colormap);
-                                    texture_uploaded = true;
                                 }
                             }
 
