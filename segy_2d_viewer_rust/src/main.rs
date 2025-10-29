@@ -10,9 +10,19 @@ use gl_renderer::GlRenderer;
 use glow::HasContext;
 use picking_manager::PickingManager;
 use segy_reader::SegyReader;
-use std::sync::{Arc, Mutex};
+use std::env;
+use std::sync::Arc;
 
 fn main() -> Result<(), eframe::Error> {
+    if !has_display_server() {
+        eprintln!(
+            "No graphical display server detected (DISPLAY, WAYLAND_DISPLAY, and WAYLAND_SOCKET are unset).\n\
+             The SEG-Y viewer requires an X11 or Wayland session to show the UI.\n\
+             Skipping UI launch."
+        );
+        return Ok(());
+    }
+
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([1600.0, 900.0])
@@ -27,6 +37,12 @@ fn main() -> Result<(), eframe::Error> {
         options,
         Box::new(|cc| Box::new(SegyViewerApp::new(cc))),
     )
+}
+
+fn has_display_server() -> bool {
+    env::var_os("DISPLAY").is_some()
+        || env::var_os("WAYLAND_DISPLAY").is_some()
+        || env::var_os("WAYLAND_SOCKET").is_some()
 }
 
 struct SegyViewerApp {
