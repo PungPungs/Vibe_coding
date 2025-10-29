@@ -177,7 +177,7 @@ impl SegyViewerApp {
 }
 
 impl eframe::App for SegyViewerApp {
-    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         // Top panel - toolbar
         egui::TopBottomPanel::top("toolbar").show(ctx, |ui| {
             ui.horizontal(|ui| {
@@ -340,9 +340,6 @@ impl eframe::App for SegyViewerApp {
             // OpenGL rendering
             let has_data = !self.segy_reader.data.is_empty();
             let transform = self.get_transform_matrix();
-            let picks = self.picking_manager.get_interpolated().to_vec();
-            let show_picks = self.show_picks;
-            let num_traces = self.segy_reader.num_traces;
             let gl_renderer = self.gl_renderer.clone();
 
             let callback = egui::PaintCallback {
@@ -359,9 +356,6 @@ impl eframe::App for SegyViewerApp {
                             if let Some(renderer) = &gl_renderer {
                                 if let Ok(r) = renderer.lock() {
                                     r.render(&transform);
-
-                                    // TODO: Implement picking line rendering with modern OpenGL
-                                    // (requires separate shader and VBO)
                                 }
                             }
                         }
