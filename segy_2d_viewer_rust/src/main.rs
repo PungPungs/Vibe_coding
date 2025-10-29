@@ -15,6 +15,8 @@ use std::env;
 use std::sync::Arc;
 
 fn main() -> Result<(), eframe::Error> {
+    println!("Starting SEG-Y 2D Viewer...");
+
     // Only check for display server on Linux/Unix
     #[cfg(not(target_os = "windows"))]
     {
@@ -28,6 +30,7 @@ fn main() -> Result<(), eframe::Error> {
         }
     }
 
+    println!("Initializing window...");
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([1600.0, 900.0])
@@ -37,11 +40,18 @@ fn main() -> Result<(), eframe::Error> {
         ..Default::default()
     };
 
-    eframe::run_native(
+    println!("Running eframe application...");
+    let result = eframe::run_native(
         "SEG-Y 2D Viewer",
         options,
-        Box::new(|cc| Box::new(SegyViewerApp::new(cc))),
-    )
+        Box::new(|cc| {
+            println!("Creating app instance...");
+            Box::new(SegyViewerApp::new(cc))
+        }),
+    );
+
+    println!("Application exited");
+    result
 }
 
 fn has_display_server() -> bool {
@@ -69,11 +79,19 @@ struct SegyViewerApp {
 
 impl SegyViewerApp {
     fn new(cc: &eframe::CreationContext<'_>) -> Self {
+        println!("Initializing GL renderer...");
         let gl_renderer = cc.gl.as_ref().map(|gl| unsafe {
             let renderer = GlRenderer::new(gl);
             Arc::new(Mutex::new(renderer))
         });
 
+        if gl_renderer.is_some() {
+            println!("GL renderer initialized successfully");
+        } else {
+            println!("WARNING: GL renderer not available!");
+        }
+
+        println!("Creating SegyViewerApp...");
         Self {
             segy_reader: SegyReader::new(),
             picking_manager: PickingManager::new(),
