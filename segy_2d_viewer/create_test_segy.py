@@ -68,6 +68,11 @@ def create_test_segy(filename='test_data.sgy', num_traces=100, num_samples=500):
 
 
 if __name__ == '__main__':
+    import os
+
+    # resources 디렉토리 생성
+    os.makedirs('resources', exist_ok=True)
+
     # 기본 테스트 파일 생성
     create_test_segy('resources/test_data.sgy', num_traces=100, num_samples=500)
 

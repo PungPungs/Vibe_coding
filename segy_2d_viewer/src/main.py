@@ -13,6 +13,7 @@ from PyQt5.QtGui import QIcon
 from segy_reader import SegyReader
 from gl_widget import SegyGLWidget
 from picking_manager import PickingManager
+from auto_picking import AutoPicker, get_algorithm_params
 
 
 class MainWindow(QMainWindow):
@@ -24,6 +25,7 @@ class MainWindow(QMainWindow):
         # 데이터 관리
         self.segy_reader = SegyReader()
         self.picking_manager = PickingManager()
+        self.auto_picker = AutoPicker()
 
         # UI 초기화
         self.init_ui()
@@ -98,6 +100,13 @@ class MainWindow(QMainWindow):
         clear_picks_action.triggered.connect(self.clear_picks)
         toolbar.addAction(clear_picks_action)
 
+        toolbar.addSeparator()
+
+        # 자동 피킹
+        auto_pick_action = QAction('Auto Pick', self)
+        auto_pick_action.triggered.connect(self.auto_pick)
+        toolbar.addAction(auto_pick_action)
+
     def create_control_panel(self) -> QWidget:
         """컨트롤 패널 생성"""
         panel = QWidget()
@@ -129,6 +138,12 @@ class MainWindow(QMainWindow):
         self.colormap_combo.currentTextChanged.connect(self.on_colormap_changed)
         layout.addWidget(self.colormap_combo)
 
+        # 자동 피킹 알고리즘 선택
+        layout.addWidget(QLabel('Auto Pick:'))
+        self.auto_pick_algo_combo = QComboBox()
+        self.auto_pick_algo_combo.addItems(['STA/LTA', 'Energy Ratio', 'AIC'])
+        layout.addWidget(self.auto_pick_algo_combo)
+
         return panel
 
     def open_segy_file(self):
@@ -147,9 +162,9 @@ class MainWindow(QMainWindow):
             success = self.segy_reader.load_file(filename)
 
             if success:
-                # 데이터 가져오기
+                # 데이터 가져오기 (num_samples x num_traces)
                 data = self.segy_reader.get_data()
-                num_traces, num_samples = self.segy_reader.get_dimensions()
+                num_samples, num_traces = self.segy_reader.get_dimensions()
 
                 # 피킹 매니저 초기화
                 self.picking_manager.set_num_traces(num_traces)
@@ -242,6 +257,64 @@ class MainWindow(QMainWindow):
         """컬러맵 변경"""
         self.gl_widget.set_colormap(colormap)
         self.status_label.setText(f'Colormap changed to {colormap}')
+
+    def auto_pick(self):
+        """자동 피킹 실행"""
+        # 데이터가 로드되었는지 확인
+        raw_data = self.segy_reader.get_raw_data()
+        if raw_data is None:
+            QMessageBox.warning(self, 'Warning', 'No SEG-Y file loaded')
+            return
+
+        # 알고리즘 선택
+        algo_name = self.auto_pick_algo_combo.currentText()
+        algo_map = {
+            'STA/LTA': 'sta_lta',
+            'Energy Ratio': 'energy_ratio',
+            'AIC': 'aic'
+        }
+        algorithm = algo_map.get(algo_name, 'sta_lta')
+
+        # 상태 메시지
+        self.status_label.setText(f'Running auto picking with {algo_name}...')
+        QApplication.processEvents()
+
+        try:
+            # 알고리즘 파라미터 가져오기
+            params = get_algorithm_params(algorithm)
+            params['use_parallel'] = True
+
+            # 자동 피킹 실행
+            picks = self.auto_picker.pick_all_traces(raw_data, algorithm, **params)
+
+            # 피킹 결과를 매니저에 추가
+            self.picking_manager.clear_picks()
+            for trace_idx, sample_idx in picks:
+                self.picking_manager.add_pick(trace_idx, sample_idx)
+
+            # 결과 메시지
+            self.status_label.setText(
+                f'Auto picking completed: {len(picks)} picks ({algo_name})'
+            )
+
+            if len(picks) == 0:
+                QMessageBox.information(
+                    self,
+                    'Auto Picking',
+                    'No first breaks detected. Try adjusting the algorithm or parameters.'
+                )
+            else:
+                QMessageBox.information(
+                    self,
+                    'Auto Picking',
+                    f'Successfully picked {len(picks)} first breaks using {algo_name}.'
+                )
+
+        except Exception as e:
+            QMessageBox.critical(self, 'Error', f'Auto picking failed: {str(e)}')
+            self.status_label.setText('Auto picking failed')
+            import traceback
+            traceback.print_exc()
 
     def on_mouse_position_changed(self, trace_idx: int, sample_idx: float):
         """마우스 위치 변경"""
