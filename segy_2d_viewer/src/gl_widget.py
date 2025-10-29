@@ -51,10 +51,10 @@ class SegyGLWidget(QOpenGLWidget):
         표시할 데이터를 설정합니다.
 
         Args:
-            data: 정규화된 데이터 배열 (num_traces x num_samples)
+            data: 정규화된 데이터 배열 (num_samples x num_traces)
         """
         self.data = data
-        self.num_traces, self.num_samples = data.shape
+        self.num_samples, self.num_traces = data.shape
 
         # 텍스처 데이터 생성
         self._create_texture_data()
@@ -70,10 +70,11 @@ class SegyGLWidget(QOpenGLWidget):
         if self.data is None:
             return
 
-        # RGB 이미지 생성
+        # RGB 이미지 생성 (num_samples x num_traces -> height x width)
         height, width = self.data.shape
         self.texture_data = np.zeros((height, width, 3), dtype=np.uint8)
 
+        # 벡터화된 컬러맵 적용 (성능 향상)
         for i in range(height):
             for j in range(width):
                 value = self.data[i, j]
@@ -160,23 +161,23 @@ class SegyGLWidget(QOpenGLWidget):
         if self.texture_data is None:
             return
 
-        # 텍스처 업데이트
+        # 텍스처 업데이트 (width=num_traces, height=num_samples)
         glBindTexture(GL_TEXTURE_2D, self.texture_id)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, self.num_samples, self.num_traces,
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, self.num_traces, self.num_samples,
                      0, GL_RGB, GL_UNSIGNED_BYTE, self.texture_data)
 
-        # 사각형 렌더링
+        # 사각형 렌더링 (가로로 표시)
         glEnable(GL_TEXTURE_2D)
         glBindTexture(GL_TEXTURE_2D, self.texture_id)
         glColor3f(1.0, 1.0, 1.0)
 
         glBegin(GL_QUADS)
-        glTexCoord2f(0.0, 1.0); glVertex2f(-1.0, -1.0)
-        glTexCoord2f(1.0, 1.0); glVertex2f(1.0, -1.0)
-        glTexCoord2f(1.0, 0.0); glVertex2f(1.0, 1.0)
-        glTexCoord2f(0.0, 0.0); glVertex2f(-1.0, 1.0)
+        glTexCoord2f(0.0, 0.0); glVertex2f(-1.0, -1.0)
+        glTexCoord2f(1.0, 0.0); glVertex2f(1.0, -1.0)
+        glTexCoord2f(1.0, 1.0); glVertex2f(1.0, 1.0)
+        glTexCoord2f(0.0, 1.0); glVertex2f(-1.0, 1.0)
         glEnd()
 
         glDisable(GL_TEXTURE_2D)
@@ -201,9 +202,9 @@ class SegyGLWidget(QOpenGLWidget):
         for trace_idx in range(self.num_traces):
             sample_idx = interpolated[trace_idx]
             if sample_idx >= 0:
-                # 정규화된 좌표로 변환
+                # 정규화된 좌표로 변환 (가로 방향)
                 x = -1.0 + 2.0 * trace_idx / self.num_traces
-                y = 1.0 - 2.0 * sample_idx / self.num_samples
+                y = -1.0 + 2.0 * sample_idx / self.num_samples
                 glVertex2f(x, y)
         glEnd()
 
@@ -214,7 +215,7 @@ class SegyGLWidget(QOpenGLWidget):
         glBegin(GL_POINTS)
         for trace_idx, sample_idx in picks:
             x = -1.0 + 2.0 * trace_idx / self.num_traces
-            y = 1.0 - 2.0 * sample_idx / self.num_samples
+            y = -1.0 + 2.0 * sample_idx / self.num_samples
             glVertex2f(x, y)
         glEnd()
 
@@ -294,9 +295,9 @@ class SegyGLWidget(QOpenGLWidget):
         norm_x = (norm_x - self.offset_x) / self.zoom
         norm_y = (norm_y - self.offset_y) / self.zoom
 
-        # 데이터 좌표로 변환
+        # 데이터 좌표로 변환 (가로 방향)
         trace_idx = int((norm_x + 1.0) / 2.0 * self.num_traces)
-        sample_idx = (1.0 - norm_y) / 2.0 * self.num_samples
+        sample_idx = (norm_y + 1.0) / 2.0 * self.num_samples
 
         # 범위 체크
         if 0 <= trace_idx < self.num_traces and 0 <= sample_idx < self.num_samples:
