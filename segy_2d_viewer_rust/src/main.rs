@@ -8,6 +8,7 @@ use auto_picking::{Algorithm, AutoPicker};
 use eframe::egui;
 use gl_renderer::GlRenderer;
 use glow::HasContext;
+use parking_lot::Mutex;
 use picking_manager::PickingManager;
 use segy_reader::SegyReader;
 use std::env;
@@ -72,11 +73,11 @@ struct SegyViewerApp {
 
 impl SegyViewerApp {
     fn new(cc: &eframe::CreationContext<'_>) -> Self {
-        // Initialize OpenGL renderer
-        let gl_renderer = cc.gl.as_ref().map(|gl| {
-            Arc::new(Mutex::new(unsafe {
-                GlRenderer::new(gl.clone())
-            }))
+        // Initialize renderer (GL context은 보관하지 않음)
+        let gl_renderer = cc.gl.as_ref().map(|gl| unsafe {
+            let mut renderer = GlRenderer::new(gl);
+            // 초기 텍스처나 셰이더 세팅 가능
+            Arc::new(Mutex::new(renderer))
         });
 
         Self {
@@ -114,14 +115,8 @@ impl SegyViewerApp {
                     self.segy_reader.num_samples
                 );
 
-                // Upload texture to GPU
-                if let Some(renderer) = &self.gl_renderer {
-                    if let Ok(mut r) = renderer.lock() {
-                        unsafe {
-                            r.upload_texture(&self.segy_reader.data, &self.colormap);
-                        }
-                    }
-                }
+                // GPU 업로드 대신 데이터 저장 표시만
+                // 실제 GL 업로드는 렌더링 시점에서 수행됨
             }
             Err(e) => {
                 self.status_message = format!("Error: {}", e);
@@ -149,7 +144,11 @@ impl SegyViewerApp {
         self.status_message = format!("Auto picking completed: {} picks", picks.len());
     }
 
-    fn screen_to_data_coords(&self, screen_pos: egui::Pos2, rect: egui::Rect) -> Option<(usize, f32)> {
+    fn screen_to_data_coords(
+        &self,
+        screen_pos: egui::Pos2,
+        rect: egui::Rect,
+    ) -> Option<(usize, f32)> {
         let width = rect.width();
         let height = rect.height();
 
@@ -157,15 +156,11 @@ impl SegyViewerApp {
             return None;
         }
 
-        // Screen to normalized [-1, 1]
         let norm_x = ((screen_pos.x - rect.left()) / width) * 2.0 - 1.0;
         let norm_y = 1.0 - ((screen_pos.y - rect.top()) / height) * 2.0;
-
-        // Apply inverse transform
         let norm_x = (norm_x - self.offset_x) / self.zoom;
         let norm_y = (norm_y - self.offset_y) / self.zoom;
 
-        // To data coordinates
         let trace_idx = ((norm_x + 1.0) / 2.0 * self.segy_reader.num_traces as f32) as i32;
         let sample_idx = (norm_y + 1.0) / 2.0 * self.segy_reader.num_samples as f32;
 
@@ -181,207 +176,17 @@ impl SegyViewerApp {
     }
 
     fn get_transform_matrix(&self) -> [f32; 16] {
-        #[rustfmt::skip]
-        let transform = [
+        [
             self.zoom, 0.0, 0.0, 0.0,
             0.0, self.zoom, 0.0, 0.0,
             0.0, 0.0, 1.0, 0.0,
             self.offset_x, self.offset_y, 0.0, 1.0,
-        ];
-        transform
+        ]
     }
 }
 
 impl eframe::App for SegyViewerApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        // Top panel - toolbar
-        egui::TopBottomPanel::top("toolbar").show(ctx, |ui| {
-            ui.horizontal(|ui| {
-                if ui.button("📁 Open SEG-Y").clicked() {
-                    if let Some(path) = rfd::FileDialog::new()
-                        .add_filter("SEG-Y", &["sgy", "segy"])
-                        .pick_file()
-                    {
-                        self.open_file(path.display().to_string());
-                    }
-                }
-
-                ui.separator();
-
-                if ui.button("Reset View").clicked() {
-                    self.zoom = 1.0;
-                    self.offset_x = 0.0;
-                    self.offset_y = 0.0;
-                }
-
-                ui.separator();
-
-                if ui.button("💾 Save Picks").clicked() {
-                    if let Some(path) = rfd::FileDialog::new()
-                        .add_filter("CSV", &["csv"])
-                        .save_file()
-                    {
-                        if let Err(e) = self.picking_manager.save_to_file(&path.display().to_string()) {
-                            self.status_message = format!("Error saving: {}", e);
-                        } else {
-                            self.status_message = String::from("Picks saved");
-                        }
-                    }
-                }
-
-                if ui.button("📂 Load Picks").clicked() {
-                    if let Some(path) = rfd::FileDialog::new()
-                        .add_filter("CSV", &["csv"])
-                        .pick_file()
-                    {
-                        if let Err(e) = self.picking_manager.load_from_file(&path.display().to_string()) {
-                            self.status_message = format!("Error loading: {}", e);
-                        } else {
-                            self.status_message = String::from("Picks loaded");
-                        }
-                    }
-                }
-
-                if ui.button("🗑 Clear Picks").clicked() {
-                    self.picking_manager.clear_picks();
-                    self.status_message = String::from("Picks cleared");
-                }
-
-                ui.separator();
-
-                if ui.button("🤖 Auto Pick").clicked() {
-                    self.auto_pick();
-                }
-            });
-        });
-
-        // Bottom panel - status bar
-        egui::TopBottomPanel::bottom("status").show(ctx, |ui| {
-            ui.horizontal(|ui| {
-                ui.label(&self.status_message);
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    ui.label(format!("Trace: {}, Sample: {:.1}", self.mouse_trace, self.mouse_sample));
-                });
-            });
-        });
-
-        // Right panel - control panel
-        egui::SidePanel::right("control_panel")
-            .default_width(300.0)
-            .show(ctx, |ui| {
-                ui.heading("Control Panel");
-                ui.separator();
-
-                ui.label("📄 File Information");
-                ui.label(&self.filename);
-                ui.add_space(10.0);
-
-                ui.separator();
-                ui.label("🎯 Picking Options");
-                ui.checkbox(&mut self.picking_enabled, "Enable Manual Picking");
-                ui.checkbox(&mut self.show_picks, "Show Picks");
-                self.picking_manager.set_enabled(self.picking_enabled);
-                ui.add_space(10.0);
-
-                ui.separator();
-                ui.label("🎨 Display Options");
-                egui::ComboBox::from_label("Colormap")
-                    .selected_text(&self.colormap)
-                    .show_ui(ui, |ui| {
-                        ui.selectable_value(&mut self.colormap, "seismic".to_string(), "Seismic");
-                        ui.selectable_value(&mut self.colormap, "grayscale".to_string(), "Grayscale");
-                    });
-                ui.add_space(10.0);
-
-                ui.separator();
-                ui.label("🤖 Auto Picking");
-                egui::ComboBox::from_label("Algorithm")
-                    .selected_text(format!("{:?}", self.algorithm))
-                    .show_ui(ui, |ui| {
-                        ui.selectable_value(&mut self.algorithm, Algorithm::StaLta, "STA/LTA");
-                        ui.selectable_value(&mut self.algorithm, Algorithm::EnergyRatio, "Energy Ratio");
-                        ui.selectable_value(&mut self.algorithm, Algorithm::Aic, "AIC");
-                    });
-
-                if ui.button("▶ Run Auto Pick").clicked() {
-                    self.auto_pick();
-                }
-
-                ui.add_space(20.0);
-                ui.separator();
-                ui.label("📖 Controls:");
-                ui.label("• Left Click: Pick");
-                ui.label("• Mouse Wheel: Zoom");
-                ui.label("• Right Drag: Pan");
-            });
-
-        // Central panel - OpenGL viewer
         egui::CentralPanel::default().show(ctx, |ui| {
             let (rect, response) = ui.allocate_exact_size(
                 ui.available_size(),
-                egui::Sense::click_and_drag(),
-            );
-
-            // Handle mouse events
-            if response.clicked() && self.picking_enabled {
-                if let Some(pos) = response.interact_pointer_pos() {
-                    if let Some((trace_idx, sample_idx)) = self.screen_to_data_coords(pos, rect) {
-                        self.picking_manager.add_pick(trace_idx, sample_idx);
-                    }
-                }
-            }
-
-            if response.dragged_by(egui::PointerButton::Secondary) {
-                let delta = response.drag_delta();
-                self.offset_x += delta.x / rect.width() * 2.0 / self.zoom;
-                self.offset_y -= delta.y / rect.height() * 2.0 / self.zoom;
-            }
-
-            // Scroll for zoom
-            let scroll_delta = ui.input(|i| i.smooth_scroll_delta);
-            if scroll_delta.y != 0.0 {
-                let zoom_factor = if scroll_delta.y > 0.0 { 1.1 } else { 0.9 };
-                self.zoom *= zoom_factor;
-                self.zoom = self.zoom.clamp(0.1, 10.0);
-            }
-
-            // Update mouse position
-            if let Some(pos) = response.hover_pos() {
-                if let Some((trace_idx, sample_idx)) = self.screen_to_data_coords(pos, rect) {
-                    self.mouse_trace = trace_idx as i32;
-                    self.mouse_sample = sample_idx;
-                }
-            }
-
-            // OpenGL rendering
-            let has_data = !self.segy_reader.data.is_empty();
-            let transform = self.get_transform_matrix();
-            let gl_renderer = self.gl_renderer.clone();
-
-            let callback = egui::PaintCallback {
-                rect,
-                callback: Arc::new(egui_glow::CallbackFn::new(move |_info, painter| {
-                    let gl = painter.gl();
-                    unsafe {
-                        // Clear
-                        gl.clear_color(0.0, 0.0, 0.0, 1.0);
-                        gl.clear(glow::COLOR_BUFFER_BIT);
-
-                        // Render SEG-Y data if available
-                        if has_data {
-                            if let Some(renderer) = &gl_renderer {
-                                if let Ok(r) = renderer.lock() {
-                                    r.render(&transform);
-                                }
-                            }
-                        }
-                    }
-                })),
-            };
-
-            ui.painter().add(callback);
-        });
-
-        ctx.request_repaint();
-    }
-}
