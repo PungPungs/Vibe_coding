@@ -1,8 +1,9 @@
 // OpenGL Renderer Module
 use glow::HasContext;
+use std::sync::Arc;
 
 pub struct GlRenderer {
-    gl: glow::Context,
+    gl: Arc<glow::Context>,
     program: glow::Program,
     vao: glow::VertexArray,
     vbo: glow::Buffer,
@@ -12,7 +13,7 @@ pub struct GlRenderer {
 }
 
 impl GlRenderer {
-    pub unsafe fn new(gl: glow::Context) -> Self {
+    pub unsafe fn new(gl: Arc<glow::Context>) -> Self {
         // Create shader program
         let vertex_shader_source = r#"
             #version 330 core
