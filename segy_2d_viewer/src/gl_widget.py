@@ -91,6 +91,13 @@ class SegyGLWidget(QOpenGLWidget):
         Returns:
             (R, G, B) 색상 값 (0 to 255)
         """
+        # NaN/Inf 처리
+        if not np.isfinite(value):
+            return (0, 0, 0)
+
+        # 값 클리핑
+        value = np.clip(value, -1.0, 1.0)
+
         if self.colormap == 'seismic':
             if value < 0:
                 # Blue to white
