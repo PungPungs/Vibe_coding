@@ -270,7 +270,7 @@ impl eframe::App for SegyViewerApp {
                         }
                     }
                 })),
-            };
+            };  
 
             ui.painter().add(callback);
         });
