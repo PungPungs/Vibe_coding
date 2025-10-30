@@ -116,16 +116,38 @@ impl SegyViewerApp {
             return;
         }
 
-        let height = self.segy_reader.num_samples;
-        let width = self.segy_reader.num_traces;
+        let orig_height = self.segy_reader.num_samples;
+        let orig_width = self.segy_reader.num_traces;
 
-        println!("Converting {}x{} data to image...", width, height);
+        // GPU texture size limit
+        const MAX_TEXTURE_SIZE: usize = 16384;
+
+        // Calculate downsampling factor
+        let width_scale = if orig_width > MAX_TEXTURE_SIZE {
+            orig_width as f32 / MAX_TEXTURE_SIZE as f32
+        } else {
+            1.0
+        };
+
+        let height_scale = if orig_height > MAX_TEXTURE_SIZE {
+            orig_height as f32 / MAX_TEXTURE_SIZE as f32
+        } else {
+            1.0
+        };
+
+        let width = (orig_width as f32 / width_scale).ceil() as usize;
+        let height = (orig_height as f32 / height_scale).ceil() as usize;
+
+        println!("Converting {}x{} data to {}x{} texture (scale: {:.2}x{:.2})...",
+                 orig_width, orig_height, width, height, width_scale, height_scale);
 
         let mut pixels = vec![egui::Color32::BLACK; width * height];
 
         for y in 0..height {
+            let orig_y = ((y as f32 * height_scale) as usize).min(orig_height - 1);
             for x in 0..width {
-                let value = self.segy_reader.data[y][x].clamp(-1.0, 1.0);
+                let orig_x = ((x as f32 * width_scale) as usize).min(orig_width - 1);
+                let value = self.segy_reader.data[orig_y][orig_x].clamp(-1.0, 1.0);
                 let color = self.apply_colormap(value);
                 pixels[y * width + x] = color;
             }
@@ -136,7 +158,7 @@ impl SegyViewerApp {
             pixels,
         };
 
-        println!("Loading texture to GPU...");
+        println!("Loading {}x{} texture to GPU...", width, height);
         self.texture = Some(ctx.load_texture(
             "segy_data",
             color_image,
