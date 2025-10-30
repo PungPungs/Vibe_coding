@@ -143,15 +143,30 @@ impl SegyViewerApp {
 
         let mut pixels = vec![egui::Color32::BLACK; width * height];
 
+        let mut min_val = f32::INFINITY;
+        let mut max_val = f32::NEG_INFINITY;
+        let mut nan_count = 0;
+
         for y in 0..height {
             let orig_y = ((y as f32 * height_scale) as usize).min(orig_height - 1);
             for x in 0..width {
                 let orig_x = ((x as f32 * width_scale) as usize).min(orig_width - 1);
-                let value = self.segy_reader.data[orig_y][orig_x].clamp(-1.0, 1.0);
-                let color = self.apply_colormap(value);
+                let value = self.segy_reader.data[orig_y][orig_x];
+
+                if value.is_finite() {
+                    min_val = min_val.min(value);
+                    max_val = max_val.max(value);
+                } else {
+                    nan_count += 1;
+                }
+
+                let clamped_value = value.clamp(-1.0, 1.0);
+                let color = self.apply_colormap(clamped_value);
                 pixels[y * width + x] = color;
             }
         }
+
+        println!("Data range: [{:.3}, {:.3}], NaN count: {}/{}", min_val, max_val, nan_count, width * height);
 
         let color_image = egui::ColorImage {
             size: [width, height],
@@ -289,6 +304,8 @@ impl eframe::App for SegyViewerApp {
             let available_size = ui.available_size();
 
             if let Some(texture) = &self.texture {
+                println!("[Render] Texture exists: {}x{}", texture.size()[0], texture.size()[1]);
+
                 let (rect, response) = ui.allocate_exact_size(
                     available_size,
                     egui::Sense::click_and_drag(),
@@ -351,6 +368,8 @@ impl eframe::App for SegyViewerApp {
                     }
                 })),
             };  
+                println!("[Render] Allocated rect: {:?}, available_size: {:?}", rect, available_size);
+
                 // Handle mouse events
                 if response.clicked() && self.picking_enabled {
                     if let Some(pos) = response.interact_pointer_pos() {
@@ -382,8 +401,19 @@ impl eframe::App for SegyViewerApp {
 
                 // Calculate scaled size
                 let img_size = texture.size_vec2();
-                let scale = (rect.width() / img_size.x).min(rect.height() / img_size.y) * self.zoom;
-                let scaled_size = img_size * scale;
+                println!("[Render] Image size: {:?}", img_size);
+
+                // For very thin data (height < 100), use minimum height
+                let min_height = 100.0;
+                let adjusted_img_size = egui::vec2(
+                    img_size.x,
+                    img_size.y.max(min_height)
+                );
+
+                let scale = (rect.width() / adjusted_img_size.x).min(rect.height() / adjusted_img_size.y) * self.zoom;
+                let scaled_size = adjusted_img_size * scale;
+
+                println!("[Render] Scale: {}, Scaled size: {:?}", scale, scaled_size);
 
                 // Center the image
                 let offset = egui::vec2(
@@ -396,6 +426,8 @@ impl eframe::App for SegyViewerApp {
                     scaled_size,
                 );
 
+                println!("[Render] Image rect: {:?}", image_rect);
+
                 // Draw the image
                 ui.painter().image(
                     texture.id(),
@@ -403,6 +435,8 @@ impl eframe::App for SegyViewerApp {
                     egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)),
                     egui::Color32::WHITE,
                 );
+
+                println!("[Render] Image drawn!");
 
             } else {
                 ui.centered_and_justified(|ui| {
