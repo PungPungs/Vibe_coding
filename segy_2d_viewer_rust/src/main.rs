@@ -1,27 +1,24 @@
-// Main Application with eframe + egui + OpenGL
+// Main Application with eframe + egui
 mod auto_picking;
-mod gl_renderer;
 mod picking_manager;
 mod segy_reader;
 
 use auto_picking::{Algorithm, AutoPicker};
 use eframe::egui;
-use gl_renderer::GlRenderer;
-use glow::HasContext;
-use parking_lot::Mutex;
 use picking_manager::PickingManager;
 use segy_reader::SegyReader;
 use std::env;
-use std::sync::Arc;
 
 fn main() -> Result<(), eframe::Error> {
+    println!("Starting SEG-Y 2D Viewer...");
+
     // Only check for display server on Linux/Unix
     #[cfg(not(target_os = "windows"))]
     {
         if !has_display_server() {
             eprintln!(
-                "No graphical display server detected (DISPLAY, WAYLAND_DISPLAY, and WAYLAND_SOCKET are unset).\n\
-                 The SEG-Y viewer requires an X11 or Wayland session to show the UI.\n\
+                "No graphical display server detected.\n\
+                 The SEG-Y viewer requires a graphical display.\n\
                  Skipping UI launch."
             );
             return Ok(());
@@ -32,18 +29,21 @@ fn main() -> Result<(), eframe::Error> {
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([1600.0, 900.0])
             .with_title("SEG-Y 2D Viewer with First Break Picking (Rust)"),
-        multisampling: 4,
-        renderer: eframe::Renderer::Glow,
         ..Default::default()
     };
 
+    println!("Running application...");
     eframe::run_native(
         "SEG-Y 2D Viewer",
         options,
-        Box::new(|cc| Box::new(SegyViewerApp::new(cc))),
+        Box::new(|cc| {
+            println!("Creating app...");
+            Box::new(SegyViewerApp::new(cc))
+        }),
     )
 }
 
+#[cfg(not(target_os = "windows"))]
 fn has_display_server() -> bool {
     env::var_os("DISPLAY").is_some()
         || env::var_os("WAYLAND_DISPLAY").is_some()
@@ -53,7 +53,7 @@ fn has_display_server() -> bool {
 struct SegyViewerApp {
     segy_reader: SegyReader,
     picking_manager: PickingManager,
-    gl_renderer: Option<Arc<Mutex<GlRenderer>>>,
+    texture: Option<egui::TextureHandle>,
     filename: String,
     colormap: String,
     show_picks: bool,
@@ -68,16 +68,12 @@ struct SegyViewerApp {
 }
 
 impl SegyViewerApp {
-    fn new(cc: &eframe::CreationContext<'_>) -> Self {
-        let gl_renderer = cc.gl.as_ref().map(|gl| unsafe {
-            let renderer = GlRenderer::new(gl);
-            Arc::new(Mutex::new(renderer))
-        });
-
+    fn new(_cc: &eframe::CreationContext<'_>) -> Self {
+        println!("App created");
         Self {
             segy_reader: SegyReader::new(),
             picking_manager: PickingManager::new(),
-            gl_renderer,
+            texture: None,
             filename: String::from("No file loaded"),
             colormap: String::from("seismic"),
             show_picks: true,
@@ -92,7 +88,7 @@ impl SegyViewerApp {
         }
     }
 
-    fn open_file(&mut self, path: String) {
+    fn open_file(&mut self, ctx: &egui::Context, path: String) {
         self.status_message = format!("Loading {}...", path);
 
         match self.segy_reader.load_file(&path) {
@@ -105,9 +101,81 @@ impl SegyViewerApp {
                     "Loaded: {} traces, {} samples",
                     self.segy_reader.num_traces, self.segy_reader.num_samples
                 );
+
+                println!("Creating texture from data...");
+                self.update_texture(ctx);
             }
             Err(e) => {
                 self.status_message = format!("Error: {}", e);
+            }
+        }
+    }
+
+    fn update_texture(&mut self, ctx: &egui::Context) {
+        if self.segy_reader.data.is_empty() {
+            return;
+        }
+
+        let height = self.segy_reader.num_samples;
+        let width = self.segy_reader.num_traces;
+
+        println!("Converting {}x{} data to image...", width, height);
+
+        let mut pixels = vec![egui::Color32::BLACK; width * height];
+
+        for y in 0..height {
+            for x in 0..width {
+                let value = self.segy_reader.data[y][x].clamp(-1.0, 1.0);
+                let color = self.apply_colormap(value);
+                pixels[y * width + x] = color;
+            }
+        }
+
+        let color_image = egui::ColorImage {
+            size: [width, height],
+            pixels,
+        };
+
+        println!("Loading texture to GPU...");
+        self.texture = Some(ctx.load_texture(
+            "segy_data",
+            color_image,
+            egui::TextureOptions::LINEAR,
+        ));
+
+        println!("Texture created successfully!");
+    }
+
+    fn apply_colormap(&self, value: f32) -> egui::Color32 {
+        if !value.is_finite() {
+            return egui::Color32::BLACK;
+        }
+
+        let value = value.clamp(-1.0, 1.0);
+
+        match self.colormap.as_str() {
+            "seismic" => {
+                if value < 0.0 {
+                    let t = value + 1.0;
+                    let r = (t * 255.0) as u8;
+                    let g = (t * 255.0) as u8;
+                    let b = 255;
+                    egui::Color32::from_rgb(r, g, b)
+                } else {
+                    let t = 1.0 - value;
+                    let r = 255;
+                    let g = (t * 255.0) as u8;
+                    let b = (t * 255.0) as u8;
+                    egui::Color32::from_rgb(r, g, b)
+                }
+            }
+            "grayscale" => {
+                let v = ((value + 1.0) / 2.0 * 255.0) as u8;
+                egui::Color32::from_gray(v)
+            }
+            _ => {
+                let v = ((value + 1.0) / 2.0 * 255.0) as u8;
+                egui::Color32::from_gray(v)
             }
         }
     }
@@ -157,15 +225,6 @@ impl SegyViewerApp {
             None
         }
     }
-
-    fn get_transform_matrix(&self) -> [f32; 16] {
-        [
-            self.zoom, 0.0, 0.0, 0.0,
-            0.0, self.zoom, 0.0, 0.0,
-            0.0, 0.0, 1.0, 0.0,
-            self.offset_x, self.offset_y, 0.0, 1.0,
-        ]
-    }
 }
 
 impl eframe::App for SegyViewerApp {
@@ -177,7 +236,7 @@ impl eframe::App for SegyViewerApp {
                         .add_filter("SEG-Y", &["sgy", "segy"])
                         .pick_file()
                     {
-                        self.open_file(path.display().to_string());
+                        self.open_file(ctx, path.display().to_string());
                     }
                 }
 
@@ -197,22 +256,21 @@ impl eframe::App for SegyViewerApp {
 
                 ui.separator();
                 ui.label(&self.status_message);
+
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    ui.label(format!("Trace: {}, Sample: {:.1}", self.mouse_trace, self.mouse_sample));
+                });
             });
         });
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            let (rect, response) = ui.allocate_exact_size(
-                ui.available_size(),
-                egui::Sense::click_and_drag(),
-            );
+            let available_size = ui.available_size();
 
-            if response.clicked() && self.picking_enabled {
-                if let Some(pos) = response.interact_pointer_pos() {
-                    if let Some((trace_idx, sample_idx)) = self.screen_to_data_coords(pos, rect) {
-                        self.picking_manager.add_pick(trace_idx, sample_idx);
-                    }
-                }
-            }
+            if let Some(texture) = &self.texture {
+                let (rect, response) = ui.allocate_exact_size(
+                    available_size,
+                    egui::Sense::click_and_drag(),
+                );
 
             if response.dragged_by(egui::PointerButton::Secondary) {
                 let delta = response.drag_delta();
@@ -271,10 +329,64 @@ impl eframe::App for SegyViewerApp {
                     }
                 })),
             };  
+                // Handle mouse events
+                if response.clicked() && self.picking_enabled {
+                    if let Some(pos) = response.interact_pointer_pos() {
+                        if let Some((trace_idx, sample_idx)) = self.screen_to_data_coords(pos, rect) {
+                            self.picking_manager.add_pick(trace_idx, sample_idx);
+                        }
+                    }
+                }
 
-            ui.painter().add(callback);
+                if response.dragged_by(egui::PointerButton::Secondary) {
+                    let delta = response.drag_delta();
+                    self.offset_x += delta.x / rect.width() * 2.0 / self.zoom;
+                    self.offset_y -= delta.y / rect.height() * 2.0 / self.zoom;
+                }
+
+                let scroll_delta = ui.input(|i| i.smooth_scroll_delta);
+                if scroll_delta.y != 0.0 {
+                    let zoom_factor = if scroll_delta.y > 0.0 { 1.1 } else { 0.9 };
+                    self.zoom *= zoom_factor;
+                    self.zoom = self.zoom.clamp(0.1, 10.0);
+                }
+
+                if let Some(pos) = response.hover_pos() {
+                    if let Some((trace_idx, sample_idx)) = self.screen_to_data_coords(pos, rect) {
+                        self.mouse_trace = trace_idx as i32;
+                        self.mouse_sample = sample_idx;
+                    }
+                }
+
+                // Calculate scaled size
+                let img_size = texture.size_vec2();
+                let scale = (rect.width() / img_size.x).min(rect.height() / img_size.y) * self.zoom;
+                let scaled_size = img_size * scale;
+
+                // Center the image
+                let offset = egui::vec2(
+                    rect.center().x - scaled_size.x / 2.0 + self.offset_x * scaled_size.x / 2.0,
+                    rect.center().y - scaled_size.y / 2.0 + self.offset_y * scaled_size.y / 2.0,
+                );
+
+                let image_rect = egui::Rect::from_min_size(
+                    egui::pos2(offset.x, offset.y),
+                    scaled_size,
+                );
+
+                // Draw the image
+                ui.painter().image(
+                    texture.id(),
+                    image_rect,
+                    egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)),
+                    egui::Color32::WHITE,
+                );
+
+            } else {
+                ui.centered_and_justified(|ui| {
+                    ui.label("No data loaded. Click 'Open SEG-Y' to load a file.");
+                });
+            }
         });
-
-        ctx.request_repaint();
     }
 }
