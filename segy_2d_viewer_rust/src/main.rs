@@ -266,7 +266,7 @@ impl eframe::App for SegyViewerApp {
                 callback: Arc::new(egui_glow::CallbackFn::new(move |_info, painter| {
                     let gl = painter.gl();
                     unsafe {
-                        gl.clear_color(0.0, 0.0, 0.0, 1.0);
+                        gl.clear_color(0.2, 0.2, 0.2, 1.0); // Dark gray to see if clearing works
                         gl.clear(glow::COLOR_BUFFER_BIT);
 
                         if let Some(renderer) = &gl_renderer {
@@ -274,7 +274,9 @@ impl eframe::App for SegyViewerApp {
                                 if let Some(mut r) = renderer.try_lock() {
                                     // Upload texture only if not already uploaded
                                     if r.texture_width == 0 {
+                                        println!("Uploading texture: {}x{} samples", data.len(), data[0].len());
                                         r.upload_texture(gl, data, colormap);
+                                        println!("Texture uploaded, width: {}", r.texture_width);
                                     }
                                 }
                             }

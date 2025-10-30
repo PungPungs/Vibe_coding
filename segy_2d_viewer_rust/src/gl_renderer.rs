@@ -98,12 +98,16 @@ impl GlRenderer {
 
     /// 텍스처 업로드 (GL context는 매번 인자로 전달)
     pub unsafe fn upload_texture(&mut self, gl: &glow::Context, data: &[Vec<f32>], colormap: &str) {
+        println!("[GlRenderer] upload_texture called");
+
         if data.is_empty() || data[0].is_empty() {
+            println!("[GlRenderer] WARNING: Empty data!");
             return;
         }
 
         let height = data.len();
         let width = data[0].len();
+        println!("[GlRenderer] Texture dimensions: {}x{}", width, height);
         let mut texture_data = vec![0u8; width * height * 3];
 
         for y in 0..height {
@@ -160,10 +164,14 @@ impl GlRenderer {
 
     /// 렌더링 함수 - GL context를 외부에서 받음
     pub unsafe fn render(&self, gl: &glow::Context, transform: &[f32; 16]) {
+        println!("[GlRenderer] render called, texture size: {}x{}", self.texture_width, self.texture_height);
+
         gl.use_program(Some(self.program));
 
         if let Some(loc) = gl.get_uniform_location(self.program, "transform") {
             gl.uniform_matrix_4_f32_slice(Some(&loc), false, transform);
+        } else {
+            println!("[GlRenderer] WARNING: transform uniform not found!");
         }
 
         gl.active_texture(glow::TEXTURE0);
@@ -171,6 +179,8 @@ impl GlRenderer {
 
         gl.bind_vertex_array(Some(self.vao));
         gl.draw_arrays(glow::TRIANGLE_FAN, 0, 4);
+
+        println!("[GlRenderer] render complete");
     }
 
     pub unsafe fn cleanup(&self, gl: &glow::Context) {
