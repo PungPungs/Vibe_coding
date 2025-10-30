@@ -1,5 +1,9 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'home_screen.dart';
+import 'package:http/http.dart' as http;
+
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
@@ -11,6 +15,7 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _idController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  bool _isButtonEnabled = false;
 
   @override
   void dispose() {
@@ -20,8 +25,16 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _handleLogin() {
+    String _id = _idController.text;
+    String _pwd = _passwordController.text;
+
+    login(_id,_pwd);
+    // query 전달을 위한 php ? rest api? -> 방법 고려
+
+
     // 로그인 로직은 여기에 추가하세요
     // 현재는 화면만 구성되어 있습니다
+
     Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const HomeScreen()),
@@ -34,6 +47,33 @@ class _LoginScreenState extends State<LoginScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('회원가입 기능은 구현되지 않았습니다')),
     );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _idController.addListener(_validateInputs);
+    _passwordController.addListener(_validateInputs);
+  }
+
+  void _validateInputs() {
+    setState(() {
+      _isButtonEnabled =
+          _idController.text.isNotEmpty && _passwordController.text.isNotEmpty;
+    });
+  }
+
+  Future<void> login(String id, String password) async{
+    final url = Uri.parse("");
+    final response = await http.post(
+      url,
+      headers: {'':""},
+      body: jsonEncode({
+        "" : "",
+      })
+    );
+
+
   }
 
   @override
@@ -182,7 +222,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                     // 로그인 버튼
                     ElevatedButton(
-                      onPressed: _handleLogin,
+                      onPressed: _isButtonEnabled ? _handleLogin : null,
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 18),
                         backgroundColor: brownButton,
