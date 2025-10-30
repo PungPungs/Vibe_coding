@@ -294,6 +294,63 @@ impl eframe::App for SegyViewerApp {
                     egui::Sense::click_and_drag(),
                 );
 
+            if response.dragged_by(egui::PointerButton::Secondary) {
+                let delta = response.drag_delta();
+                self.offset_x += delta.x / rect.width() * 2.0 / self.zoom;
+                self.offset_y -= delta.y / rect.height() * 2.0 / self.zoom;
+            }
+
+            let scroll_delta = ui.input(|i| i.smooth_scroll_delta);
+            if scroll_delta.y != 0.0 {
+                let zoom_factor = if scroll_delta.y > 0.0 { 1.1 } else { 0.9 };
+                self.zoom *= zoom_factor;
+                self.zoom = self.zoom.clamp(0.1, 10.0);
+            }
+
+            if let Some(pos) = response.hover_pos() {
+                if let Some((trace_idx, sample_idx)) = self.screen_to_data_coords(pos, rect) {
+                    self.mouse_trace = trace_idx as i32;
+                    self.mouse_sample = sample_idx;
+                }
+            }
+
+            let has_data = !self.segy_reader.data.is_empty();
+            let transform = self.get_transform_matrix();
+            let gl_renderer = self.gl_renderer.clone();
+            let data_clone = if has_data {
+                Some((self.segy_reader.data.clone(), self.colormap.clone()))
+            } else {
+                None
+            };
+
+            let callback = egui::PaintCallback {
+                rect,
+                callback: Arc::new(egui_glow::CallbackFn::new(move |_info, painter| {
+                    let gl = painter.gl();
+                    unsafe {
+                        gl.clear_color(0.0, 0.0, 0.0, 1.0);
+                        gl.clear(glow::COLOR_BUFFER_BIT);
+
+                        if let Some(renderer) = &gl_renderer {
+                            if let Some((data, colormap)) = &data_clone {
+                                if let Some(mut r) = renderer.try_lock() {
+                                    r.upload_texture(gl, data, &colormap);
+                                    // Upload texture only if not already uploaded
+                                    if r.texture_width == 0 {
+                                        r.upload_texture(gl, data, colormap);
+                                    }
+                                }
+                            }
+
+                            if has_data {
+                                if let Some(r) = renderer.try_lock() {
+                                    r.render(gl, &transform);
+                                }
+                            }
+                        }
+                    }
+                })),
+            };  
                 // Handle mouse events
                 if response.clicked() && self.picking_enabled {
                     if let Some(pos) = response.interact_pointer_pos() {
