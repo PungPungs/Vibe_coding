@@ -1,13 +1,15 @@
-# SEG-Y 2D Viewer (Rust + OpenGL)
+# SEG-Y 2D Viewer (Rust + egui)
 
-SEG-Y 파일을 시각화하고 first break picking을 수행하는 OpenGL 기반 2D 뷰어 (Rust 버전).
+SEG-Y 파일을 시각화하고 first break picking을 수행하는 egui 기반 2D 뷰어 (Rust 버전).
 
 ## 주요 기능
 
 1. **확대/축소 기능**: 마우스 휠을 사용하여 데이터를 확대/축소
-2. **SEG-Y 뷰어**: OpenGL을 사용한 고성능 2D 지진파 데이터 시각화
+2. **SEG-Y 뷰어**: egui를 사용한 고성능 2D 지진파 데이터 시각화
    - memmap2를 이용한 빠른 파일 로딩
    - rayon을 통한 병렬 처리
+   - 대용량 파일을 위한 자동 다운샘플링
+   - Bilinear interpolation을 통한 부드러운 이미지 품질
 3. **수동 피킹 기능**: First break를 수동으로 피킹 (1트레이스당 1점)
 4. **자동 피킹 알고리즘**:
    - **STA/LTA** (Short-Term Average / Long-Term Average)
@@ -20,7 +22,7 @@ SEG-Y 파일을 시각화하고 first break picking을 수행하는 OpenGL 기�
 ## 기술 스택
 
 - **GUI Framework**: eframe (egui)
-- **Graphics**: glow (OpenGL bindings)
+- **Graphics**: egui native rendering
 - **SEG-Y Parsing**: 직접 구현 (memmap2 + byteorder)
 - **Parallel Processing**: rayon
 - **File I/O**: memmap2
@@ -28,7 +30,6 @@ SEG-Y 파일을 시각화하고 first break picking을 수행하는 OpenGL 기�
 ## 시스템 요구사항
 
 - Rust 1.70 이상
-- OpenGL 3.3 이상 지원 GPU
 - 최소 2GB RAM
 
 ## 빌드 및 실행
@@ -75,9 +76,8 @@ cargo run --release
 segy_2d_viewer_rust/
 ├── Cargo.toml           # 의존성 및 빌드 설정
 ├── src/
-│   ├── main.rs          # 메인 애플리케이션 + UI
+│   ├── main.rs          # 메인 애플리케이션 + UI + 렌더링
 │   ├── segy_reader.rs   # SEG-Y 파일 파싱
-│   ├── gl_renderer.rs   # OpenGL 렌더러
 │   ├── picking_manager.rs   # 피킹 관리
 │   └── auto_picking.rs  # 자동 피킹 알고리즘
 └── README.md
@@ -97,12 +97,11 @@ segy_2d_viewer_rust/
 ```toml
 eframe = "0.27"        # GUI framework
 egui = "0.27"          # Immediate mode GUI
-glow = "0.13"          # OpenGL bindings
 byteorder = "1.5"      # Byte order conversion
 rayon = "1.8"          # Parallel processing
 memmap2 = "0.9"        # Memory mapping
 anyhow = "1.0"         # Error handling
-csv = "1.3"            # CSV I/O
+rfd = "0.14"           # File dialog
 ```
 
 ## 빌드 옵션

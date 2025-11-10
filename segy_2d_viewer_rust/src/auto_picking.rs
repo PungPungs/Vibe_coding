@@ -30,9 +30,9 @@ impl AutoPicker {
 
                 // Pick
                 let sample_idx = match algorithm {
-                    Algorithm::StaLta => Self::pick_sta_lta(&trace, 5, 50, 3.0),
-                    Algorithm::EnergyRatio => Self::pick_energy_ratio(&trace, 20, 0.1),
-                    Algorithm::Aic => Self::pick_aic(&trace, 100),
+                    Algorithm::StaLta => Self::pick_sta_lta(&trace, 10, 40, 1.5),
+                    Algorithm::EnergyRatio => Self::pick_energy_ratio(&trace, 20, 0.05),
+                    Algorithm::Aic => Self::pick_aic(&trace, 200),
                 };
 
                 sample_idx.map(|s| (trace_idx, s))
@@ -48,16 +48,36 @@ impl AutoPicker {
 
         let trace_abs: Vec<f32> = trace.iter().map(|v| v.abs()).collect();
 
+        let mut max_ratio = 0.0f32;
+        let mut best_idx = 0;
+        let mut found = false;
+
         for i in lta_window..(len - sta_window) {
             let lta: f32 = trace_abs[i - lta_window..i].iter().sum::<f32>() / lta_window as f32;
             let sta: f32 = trace_abs[i..i + sta_window].iter().sum::<f32>() / sta_window as f32;
 
-            if lta > 0.0 && (sta / lta) > threshold {
-                return Some(i as f32);
+            if lta > 0.0 {
+                let ratio = sta / lta;
+                if ratio > threshold && ratio > max_ratio {
+                    max_ratio = ratio;
+                    best_idx = i;
+                    found = true;
+                }
             }
         }
 
-        None
+        if found {
+            Some(best_idx as f32)
+        } else {
+            // Fallback: find the point with maximum absolute amplitude
+            let max_idx = trace_abs.iter()
+                .enumerate()
+                .skip(lta_window)
+                .take(len - lta_window - sta_window)
+                .max_by(|a, b| a.1.partial_cmp(b.1).unwrap_or(std::cmp::Ordering::Equal))
+                .map(|(idx, _)| idx)?;
+            Some(max_idx as f32)
+        }
     }
 
     fn pick_energy_ratio(trace: &[f32], window: usize, threshold: f32) -> Option<f32> {

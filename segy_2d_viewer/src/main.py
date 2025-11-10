@@ -6,9 +6,8 @@ import sys
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                               QHBoxLayout, QPushButton, QFileDialog, QLabel,
                               QStatusBar, QToolBar, QAction, QMessageBox,
-                              QCheckBox, QComboBox)
-from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QIcon
+                              QCheckBox, QComboBox, QSlider, QLineEdit)
+from PyQt5.QtGui import QIcon, QDoubleValidator
 
 from segy_reader import SegyReader
 from gl_widget import SegyGLWidget
@@ -26,6 +25,10 @@ class MainWindow(QMainWindow):
         self.segy_reader = SegyReader()
         self.picking_manager = PickingManager()
         self.auto_picker = AutoPicker()
+
+        # 시간 자르기 변수
+        self.time_start_ms: float = 0.0
+        self.time_end_ms: float = 0.0
 
         # UI 초기화
         self.init_ui()
@@ -158,13 +161,52 @@ class MainWindow(QMainWindow):
         display_group_label.setStyleSheet('font-weight: bold; padding: 5px;')
         layout.addWidget(display_group_label)
 
-        # 컬러맵 선택
-        colormap_label = QLabel('Colormap:')
-        layout.addWidget(colormap_label)
-        self.colormap_combo = QComboBox()
-        self.colormap_combo.addItems(['seismic', 'grayscale'])
-        self.colormap_combo.currentTextChanged.connect(self.on_colormap_changed)
-        layout.addWidget(self.colormap_combo)
+        # Wiggle 표시 체크박스
+        self.show_wiggle_checkbox = QCheckBox('Show Wiggle')
+        self.show_wiggle_checkbox.setChecked(True)
+        self.show_wiggle_checkbox.stateChanged.connect(self.on_show_wiggle_changed)
+        layout.addWidget(self.show_wiggle_checkbox)
+
+        # Variable Area 표시 체크박스
+        self.show_va_checkbox = QCheckBox('Show Variable Area')
+        self.show_va_checkbox.setChecked(True)
+        self.show_va_checkbox.stateChanged.connect(self.on_show_va_changed)
+        layout.addWidget(self.show_va_checkbox)
+
+        # Wiggle 스케일 슬라이더
+        wiggle_scale_label = QLabel('Wiggle Scale:')
+        layout.addWidget(wiggle_scale_label)
+        self.wiggle_scale_slider = QSlider(Qt.Horizontal)
+        self.wiggle_scale_slider.setMinimum(10)
+        self.wiggle_scale_slider.setMaximum(200)
+        self.wiggle_scale_slider.setValue(100)
+        self.wiggle_scale_slider.valueChanged.connect(self.on_wiggle_scale_changed)
+        layout.addWidget(self.wiggle_scale_slider)
+
+        layout.addSpacing(15)
+
+        # 시간 구간 자르기 그룹
+        cropping_group_label = QLabel('Time Cropping (ms)')
+        cropping_group_label.setStyleSheet('font-weight: bold; padding: 5px;')
+        layout.addWidget(cropping_group_label)
+
+        # 시작 시간
+        time_start_layout = QHBoxLayout()
+        time_start_layout.addWidget(QLabel('Start:'))
+        self.time_start_input = QLineEdit('0.0')
+        self.time_start_input.setValidator(QDoubleValidator())
+        self.time_start_input.editingFinished.connect(self.on_time_cropping_changed)
+        time_start_layout.addWidget(self.time_start_input)
+        layout.addLayout(time_start_layout)
+
+        # 종료 시간
+        time_end_layout = QHBoxLayout()
+        time_end_layout.addWidget(QLabel('End:'))
+        self.time_end_input = QLineEdit('0.0') # Will be updated to max time on load
+        self.time_end_input.setValidator(QDoubleValidator())
+        self.time_end_input.editingFinished.connect(self.on_time_cropping_changed)
+        time_end_layout.addWidget(self.time_end_input)
+        layout.addLayout(time_end_layout)
 
         layout.addSpacing(15)
 
@@ -225,6 +267,7 @@ class MainWindow(QMainWindow):
 
                 # GL 위젯에 데이터 설정
                 self.gl_widget.set_data(data)
+                self.gl_widget.sample_rate = sample_rate # Pass sample_rate
 
                 # 파일 정보 업데이트
                 sample_rate = self.segy_reader.get_sample_rate()
@@ -306,10 +349,23 @@ class MainWindow(QMainWindow):
         show = state == Qt.Checked
         self.gl_widget.set_show_picks(show)
 
-    def on_colormap_changed(self, colormap: str):
-        """컬러맵 변경"""
-        self.gl_widget.set_colormap(colormap)
-        self.status_label.setText(f'Colormap changed to {colormap}')
+    def on_show_wiggle_changed(self, state):
+        """Wiggle 표시 상태 변경"""
+        show = state == Qt.Checked
+        self.gl_widget.set_show_wiggle(show)
+        self.status_label.setText(f'Wiggle {"shown" if show else "hidden"}')
+
+    def on_show_va_changed(self, state):
+        """Variable Area 표시 상태 변경"""
+        show = state == Qt.Checked
+        self.gl_widget.set_show_va(show)
+        self.status_label.setText(f'Variable Area {"shown" if show else "hidden"}')
+
+    def on_wiggle_scale_changed(self, value):
+        """Wiggle 스케일 변경"""
+        scale = value / 100.0  # 0.1 ~ 2.0
+        self.gl_widget.set_wiggle_scale(scale)
+        self.status_label.setText(f'Wiggle scale: {scale:.2f}')
 
     def auto_pick(self):
         """자동 피킹 실행"""
@@ -373,6 +429,15 @@ class MainWindow(QMainWindow):
         """마우스 위치 변경"""
         self.mouse_pos_label.setText(f'Trace: {trace_idx}, Sample: {sample_idx:.2f}')
 
+    def on_time_cropping_changed(self):
+        """시간 자르기 입력 변경 시 호출"""
+        try:
+            self.time_start_ms = float(self.time_start_input.text())
+            self.time_end_ms = float(self.time_end_input.text())
+            self.gl_widget.set_time_cropping(self.time_start_ms, self.time_end_ms)
+        except ValueError:
+            QMessageBox.warning(self, 'Invalid Input', 'Please enter valid numbers for time cropping.')
+
     def closeEvent(self, event):
         """윈도우 종료 이벤트"""
         self.segy_reader.close()
@@ -391,4 +456,9 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        import traceback
+        traceback.print_exc()

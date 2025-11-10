@@ -45,7 +45,15 @@ pip install -r requirements.txt
 ## 실행
 
 ```bash
-python src/main.py
+cd segy_2d_viewer/src
+python main.py
+```
+
+또는 루트 디렉토리에서:
+
+```bash
+cd segy_2d_viewer
+python -m src.main
 ```
 
 ## 빠른 시작
