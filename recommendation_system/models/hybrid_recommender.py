@@ -82,7 +82,20 @@ class HybridRecommender:
         self.user_item_matrix = None
         self.processed_df = None
 
+        # 상품 카탈로그 (판매 상태 관리)
+        self.product_catalog = None
+
         self.is_fitted = False
+
+    def set_catalog(self, catalog):
+        """
+        상품 카탈로그 설정
+
+        Args:
+            catalog: ProductCatalog 인스턴스
+        """
+        self.product_catalog = catalog
+        print(f"Product catalog set: {catalog.get_stats()['active']} active products")
 
     def fit(
         self,
@@ -257,6 +270,10 @@ class HybridRecommender:
         # 각 모델별 추천 결과 수집
         all_products = list(self.product_info.keys())
 
+        # 카탈로그가 설정된 경우, 판매 중인 상품만 필터링
+        if self.product_catalog:
+            all_products = self.product_catalog.filter_recommendable(all_products)
+
         # 구매한 상품
         purchased = set()
         if exclude_purchased and user_id in self.user_profiles:
@@ -268,6 +285,10 @@ class HybridRecommender:
 
         for product_name in all_products:
             if product_name in purchased:
+                continue
+
+            # 카탈로그에서 추천 가능 여부 재확인
+            if self.product_catalog and not self.product_catalog.is_recommendable(product_name):
                 continue
 
             # CF 점수
